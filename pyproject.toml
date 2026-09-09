@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "insider-tracker"
+version = "0.1.0"
+description = "Auditable European PDMR transaction research pilot"
+requires-python = ">=3.10"
+dependencies = ["pypdf==3.17.4"]
+
+[project.scripts]
+insider-tracker = "insider_tracker.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["insider_tracker*", "ingestion*", "parsers*"]

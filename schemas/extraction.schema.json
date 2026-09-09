@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","$id":"extraction.schema.json","type":"object",
+  "required":["schema_version","fixture_kind","source","filings"],
+  "properties":{"schema_version":{"const":"1.0"},"fixture_kind":{"enum":["synthetic","real"]},"source":{"type":"object","required":["native_record_id","url"]},"filings":{"type":"array","minItems":1}}
+}

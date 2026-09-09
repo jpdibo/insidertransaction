@@ -1,0 +1,10 @@
+{
+  "schema_version":"1.0","fixture_kind":"synthetic",
+  "source":{"native_record_id":"fixture-001","url":"https://example.invalid/fixture-001","published_at":"2026-09-07T07:00:00+01:00"},
+  "filings":[{"source_locator":"notification-1","notification_status":"initial","amends_native_reference":null,
+    "issuer":{"name_raw":"Example Issuer plc","lei_raw":null},
+    "transacting_party":{"name_raw":"Example Director","party_type":"natural_person","status_raw":"Chief Financial Officer","role_normalized":"executive","pdmr_or_pca":"pdmr","identity_resolution_status":"unresolved"},
+    "issuer_received_at":null,
+    "transaction_groups":[{"group_locator":"section-4","event_key":"event-001","instrument":{"name_raw":"Ordinary shares","isin_raw":null,"instrument_type":"ordinary_share"},"nature_raw":"Purchase of ordinary shares","action":"acquisition","mechanism":"exchange_purchase","consideration":"cash_paid_received","investment_discretion":"evidenced_discretionary","exposure_effect":"increase","trade_date":"2026-09-04","trade_date_precision":"day","venue_raw":"London Stock Exchange","venue_mic":"XLON","aggregation_reconciliation":"not_applicable","eligible_own_money_signal":true,
+      "rows":[{"row_locator":"4c-row-1","representation":"individual","price_raw":"245.50 GBX","price_amount_reported":"245.50","price_currency_normalized":"GBP","quote_unit_scale":"0.01","quantity_raw":"10,000","quantity":"10000","quantity_unit":"shares","consideration_reported":null,"consideration_currency":"GBP","consideration_derivation":"quantity * price_amount_reported * quote_unit_scale"}]}]}]
+}

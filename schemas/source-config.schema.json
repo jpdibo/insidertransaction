@@ -1,0 +1,5 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","$id":"source-config.schema.json","type":"object",
+  "required":["schema_version","jurisdictions","sources"],
+  "properties":{"schema_version":{"const":"1.0"},"jurisdictions":{"type":"array","minItems":17,"maxItems":17},"sources":{"type":"array","items":{"type":"object","required":["source_id","jurisdiction","public_url","adapter","version","status","rights_status"]}}}
+}

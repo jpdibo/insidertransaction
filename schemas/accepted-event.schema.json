@@ -1,0 +1,6 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","$id":"accepted-event.schema.json","type":"object",
+  "description":"Canonical economic content. Decimal values serialize as strings; audit timestamps and machine paths are excluded from its hash.",
+  "required":["event_id","filing_id","action","rows","evidence"],
+  "properties":{"event_id":{"type":"string"},"filing_id":{"type":"string"},"action":{"enum":["acquisition","disposal","grant","exercise","conversion","transfer","pledge","release","lapse","cancellation","other","unknown"]},"rows":{"type":"array"},"evidence":{"type":"array"}}
+}

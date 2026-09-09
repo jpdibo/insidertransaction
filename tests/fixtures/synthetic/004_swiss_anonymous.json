@@ -1,0 +1,5 @@
+{
+  "schema_version":"1.0","fixture_kind":"synthetic","source":{"native_record_id":"fixture-004","url":"https://example.invalid/fixture-004","published_at":"2026-09-04T10:00:00+02:00"},
+  "filings":[{"source_locator":"six-1","notification_status":"initial","issuer":{"name_raw":"Anonymous Test AG","lei_raw":null},"transacting_party":{"party_type":"anonymous_role","status_raw":"Member of the executive committee","pdmr_or_pca":"anonymous","identity_resolution_status":"unavailable_by_regime"},
+  "transaction_groups":[{"group_locator":"six-sale","instrument":{"name_raw":"Registered shares","instrument_type":"ordinary_share"},"nature_raw":"Sale","action":"disposal","mechanism":"unknown","consideration":"cash_paid_received","investment_discretion":"unknown","exposure_effect":"decrease","trade_date":"2026-09-01","trade_date_precision":"day","eligible_own_money_signal":false,"signal_exclusion_reason":"disposal","rows":[{"row_locator":"row-1","representation":"aggregate","price_raw":null,"price_amount_reported":null,"quantity_raw":"100","quantity":"100","quantity_unit":"shares","consideration_reported":"15000","consideration_currency":"CHF"}]}]}]
+}

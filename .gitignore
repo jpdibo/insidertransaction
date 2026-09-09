@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+.venv/
+.env
+data/*.sqlite3
+data/*.sqlite3-*
+data/lock
+data/raw/
+data/backups/
+data/reports/
+.playwright-mcp/
+*.egg-info/
+.pytest_cache/
+afm-body.js
+six-management.js
+ureg-network.txt
+ureg-search.md

@@ -1,0 +1,9 @@
+{
+  "schema_version":"1.0","fixture_kind":"synthetic","source":{"native_record_id":"fixture-002","url":"https://example.invalid/fixture-002","published_at":"2026-09-06T12:00:00Z"},
+  "filings":[{"source_locator":"notification-1","notification_status":"initial","issuer":{"name_raw":"Fill Test SE","lei_raw":"52990000000000000001"},"transacting_party":{"name_raw":"Anna Example","party_type":"natural_person","status_raw":"Director","pdmr_or_pca":"pdmr","identity_resolution_status":"unresolved"},
+  "transaction_groups":[{"group_locator":"fills","event_key":"fills-event","instrument":{"name_raw":"Ordinary shares","isin_raw":"DE0000000001","instrument_type":"ordinary_share"},"nature_raw":"Purchase","action":"acquisition","mechanism":"exchange_purchase","consideration":"cash_paid_received","investment_discretion":"unknown","exposure_effect":"increase","trade_date":"2026-09-03","trade_date_precision":"day","aggregation_reconciliation":"matches_details","eligible_own_money_signal":false,"signal_exclusion_reason":"discretion_not_established","rows":[
+    {"row_locator":"fill-1","representation":"individual","price_raw":"2.00 EUR","price_amount_reported":"2","price_currency_normalized":"EUR","quote_unit_scale":"1","quantity_raw":"1,000","quantity":"1000","quantity_unit":"shares","consideration_currency":"EUR"},
+    {"row_locator":"fill-2","representation":"individual","price_raw":"2.10 EUR","price_amount_reported":"2.1","price_currency_normalized":"EUR","quote_unit_scale":"1","quantity_raw":"2,000","quantity":"2000","quantity_unit":"shares","consideration_currency":"EUR"},
+    {"row_locator":"aggregate","representation":"aggregate","price_raw":"2.0666666667 EUR","price_amount_reported":"2.0666666667","price_currency_normalized":"EUR","quote_unit_scale":"1","quantity_raw":"3,000","quantity":"3000","quantity_unit":"shares","consideration_currency":"EUR"}
+  ]}]}]
+}
