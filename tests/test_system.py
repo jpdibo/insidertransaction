@@ -91,6 +91,12 @@ class SystemTest(unittest.TestCase):
         first = self.ingest()
         counts1 = tuple(self.connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in ("economic_events", "event_versions", "outbox_events"))
         hashes1 = [row[0] for row in self.connection.execute("SELECT accepted_content_hash FROM event_versions ORDER BY economic_event_id")]
+        record_id = self.connection.execute("SELECT id FROM source_records ORDER BY id LIMIT 1").fetchone()[0]
+        self.connection.execute(
+            "INSERT INTO quality_issues(entity_type,entity_id,code,severity,status,details) VALUES('source_record',?,'parse_failed','error','open','previous parser')",
+            (str(record_id),),
+        )
+        self.connection.commit()
         second = self.ingest()
         counts2 = tuple(self.connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] for table in ("economic_events", "event_versions", "outbox_events"))
         hashes2 = [row[0] for row in self.connection.execute("SELECT accepted_content_hash FROM event_versions ORDER BY economic_event_id")]
@@ -98,6 +104,7 @@ class SystemTest(unittest.TestCase):
         self.assertEqual(second.status, "success")
         self.assertEqual(counts1, counts2)
         self.assertEqual(hashes1, hashes2)
+        self.assertEqual(self.connection.execute("SELECT status FROM quality_issues WHERE details='previous parser'").fetchone()[0], "resolved")
         rows = self.connection.execute("SELECT representation,quantity_decimal,selected_for_analytics FROM reported_transaction_rows WHERE transaction_group_id=(SELECT id FROM transaction_groups WHERE group_locator='fills') ORDER BY occurrence_ordinal").fetchall()
         self.assertEqual([(row[0], row[1], row[2]) for row in rows], [("individual", "1000", 1), ("individual", "2000", 1), ("aggregate", "3000", 0)])
         selected_total = sum((__import__("decimal").Decimal(row[1]) for row in rows if row[2]), __import__("decimal").Decimal(0))

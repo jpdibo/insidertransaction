@@ -304,9 +304,11 @@ def _accept_payload(
                 )
                 for group in filing["transaction_groups"]:
                     connection.execute(
-                        "UPDATE transaction_groups SET instrument_name_raw=COALESCE(instrument_name_raw,?) "
+                        "UPDATE transaction_groups SET instrument_name_raw=COALESCE(instrument_name_raw,?),"
+                        "underlying_isin_raw=COALESCE(underlying_isin_raw,?) "
                         "WHERE filing_version_id=? AND group_locator=?",
-                        (group["instrument"]["name_raw"], existing["id"], group["group_locator"]),
+                        (group["instrument"]["name_raw"], group["instrument"].get("underlying_isin_raw"),
+                         existing["id"], group["group_locator"]),
                     )
                 publication_rank = connection.execute(
                     "SELECT COALESCE(MAX(publication_rank),0)+1 FROM filing_publications WHERE filing_version_id=?",
@@ -387,9 +389,9 @@ def _accept_payload(
                         (instrument_id, isin),
                     )
                 cursor = connection.execute(
-                    "INSERT INTO transaction_groups(filing_version_id,group_locator,party_id,related_pdmr_party_id,instrument_id,instrument_name_raw,nature_raw,action,mechanism,consideration_type,investment_discretion,exposure_effect,trade_date,trade_date_precision,venue_raw,venue_mic,reconciliation_status,eligible_own_money_signal,signal_exclusion_reason) "
-                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (filing_version_id, group["group_locator"], party_id, related_party_id, instrument_id, instrument["name_raw"], group["nature_raw"],
+                    "INSERT INTO transaction_groups(filing_version_id,group_locator,party_id,related_pdmr_party_id,instrument_id,instrument_name_raw,underlying_isin_raw,nature_raw,action,mechanism,consideration_type,investment_discretion,exposure_effect,trade_date,trade_date_precision,venue_raw,venue_mic,reconciliation_status,eligible_own_money_signal,signal_exclusion_reason) "
+                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (filing_version_id, group["group_locator"], party_id, related_party_id, instrument_id, instrument["name_raw"], instrument.get("underlying_isin_raw"), group["nature_raw"],
                       group["action"], group.get("mechanism", "unknown"), group.get("consideration", "unknown"),
                      group.get("investment_discretion", "unknown"), group.get("exposure_effect", "unknown"), group.get("trade_date"),
                      group.get("trade_date_precision", "unknown"), group.get("venue_raw"), group.get("venue_mic"),
@@ -694,6 +696,12 @@ def run_daily(
                             "ORDER BY id DESC LIMIT 1", (document_id, parser_version),
                         ).fetchone()
                         if disposition and disposition["status"] == "accepted":
+                            with transaction(connection):
+                                connection.execute(
+                                    "UPDATE quality_issues SET status='resolved' WHERE entity_type='source_record' "
+                                    "AND entity_id=? AND code='parse_failed' AND status='open'",
+                                    (str(record_id),),
+                                )
                             continue
                         if disposition and disposition["status"] == "quarantined":
                             result.state = "quarantined"
@@ -722,6 +730,12 @@ def run_daily(
                     else:
                         payload = payload or parse(data)
                     accepted, amended = _accept_payload(connection, source, record_id, document_id, payload, digest, parser_version)
+                    with transaction(connection):
+                        connection.execute(
+                            "UPDATE quality_issues SET status='resolved' WHERE entity_type='source_record' "
+                            "AND entity_id=? AND code='parse_failed' AND status='open'",
+                            (str(record_id),),
+                        )
                     result.accepted += accepted
                     result.amended += amended
                 except ParseError as exc:
@@ -854,6 +868,12 @@ def reparse_saved(connection: sqlite3.Connection, config: dict[str, Any], config
                                                  "activated_at": record["published_date"] or ""})
                     parser_version = BAFIN_PARSER_VERSION
                 accepted, amended = _accept_payload(connection, source, record["record_id"], record["document_id"], payload, digest, parser_version)
+                with transaction(connection):
+                    connection.execute(
+                        "UPDATE quality_issues SET status='resolved' WHERE entity_type='source_record' "
+                        "AND entity_id=? AND code='parse_failed' AND status='open'",
+                        (str(record["record_id"]),),
+                    )
                 outcome["accepted"] += accepted
                 outcome["amended"] += amended
             except (ParseError, OSError, ValueError) as exc:

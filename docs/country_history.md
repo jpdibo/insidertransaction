@@ -105,6 +105,7 @@ This ledger records what was done for each of the 17 in-scope jurisdictions. Dat
 - 2026-09-08: Added Dutch localized decimal parsing, PCA linkage and detail/aggregate reconciliation.
 - 2026-09-08: Validated 18 notifications producing 19 groups, 20 detail rows and 19 retained aggregates; final replay returned 18 unchanged.
 - 2026-09-09: The manually launched scheduled daily run discovered 33 notifications and accepted 22 additional events without an AFM error.
+- 2026-09-09: Bounded backfill through 27 August expanded the sample to 53 notifications and 62 events. Independent review found two issues; exact transaction-type aggregate matching and versioned raw-name replay corrected both, and the repeated audit passed 50/50.
 - Current state: `live_verified` and daily-enabled. AFM does not publish correction lineage.
 - Next gate: reach and independently review 50 observations, then establish removal/correction policy.
 
@@ -115,6 +116,7 @@ This ledger records what was done for each of the 17 in-scope jurisdictions. Dat
 - 2026-09-08: Kept `681380` quarantined because referenced forms are absent and `681718` quarantined because the authoritative transaction date is absent.
 - 2026-09-09: Scheduled daily execution discovered new notification `681853`; its complete PDF exposed a no-space label extraction layout.
 - 2026-09-09: Extended the compact MAR parser for that exact layout and accepted `681853` from saved evidence.
+- 2026-09-09: Independent review of 50 accepted events initially found 16 issues. General fixes covered bilingual publication joins, event-specific names, anchored/spaced ISINs, attachment dates, option units/underlyings, row representation, instrument boundaries and venue footers; two repeated reviews reached 50/50.
 - Current state: `adapter_tested`; two evidence-incomplete quarantines remain.
 - Next gate: obtain authoritative missing evidence and expand to at least 50 independently reviewed observations.
 
@@ -154,3 +156,4 @@ This ledger records what was done for each of the 17 in-scope jurisdictions. Dat
 - 2026-09-09: Added deterministic `audit-sample` CSV generation and produced 50-event France and Sweden review manifests locally.
 - 2026-09-09: Launched the installed Task Scheduler entry after FI hardening. Every live source completed; exit code 2 was solely the expected NewsWeb evidence quarantine, demonstrating controlled partial-failure reporting.
 - 2026-09-09: Added migration 012 for filing-version issuer names and transaction-group instrument names after independent audit exposed lossy shared-entity labels.
+- 2026-09-09: Added migration 013 to preserve an option's reported underlying-share ISIN without assigning it as the option's own ISIN.

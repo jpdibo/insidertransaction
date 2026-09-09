@@ -1,6 +1,6 @@
 # Validation Report
 
-Validation updated: 09 September 2026. Host: Windows. Runtime: Conda `short_selling`, CPython 3.10.18, SQLite 3.50.3, pypdf 3.17.4. Result: **50 passed, 0 failed, 0 skipped**.
+Validation updated: 09 September 2026. Host: Windows. Runtime: Conda `short_selling`, CPython 3.10.18, SQLite 3.50.3, pypdf 3.17.4. Result: **51 passed, 0 failed, 0 skipped**.
 
 ## Executed Commands
 
@@ -11,13 +11,13 @@ Validation updated: 09 September 2026. Host: Windows. Runtime: Conda `short_sell
 & "C:\Users\jpdib\anaconda3\envs\short_selling\python.exe" -m insider_tracker daily --config "C:\insider_sales\config\sources.yaml" --database "C:\insider_sales\data\insiders.sqlite3" --raw-root "C:\insider_sales\data\raw"
 ```
 
-Final Conda test output on 09 September 2026 ended with `Ran 50 tests` and `OK`. Compilation emitted no errors. Regression coverage includes correction-before-original ordering, removal-aware reparse retractions, abandoned-run finalization, lock replacement ownership and vanished-owner races, global nullable-identifier uniqueness, explicit cross-source duplicate links, UTC scheduler configuration, legacy German and English Unternehmensregister templates, Netherlands AFM XML/PCA/detail reconciliation, English/Danish OAM form fallbacks, deterministic audit samples, the NewsWeb `681853` no-space PDF-label layout, Sweden daily partition/zero-result discovery, and AMF comment-based aggregate/acquisition semantics.
+Final Conda test output on 09 September 2026 ended with `Ran 51 tests` and `OK`. Compilation emitted no errors. Regression coverage includes correction/retraction ordering, lock ownership races, nullable-identifier uniqueness, cross-source links, UTC scheduling, multilingual source layouts, deterministic audits, AFM exact transaction-type grouping, NewsWeb ISIN/option/venue handling, Sweden daily partitioning, and AMF comment-based aggregate/acquisition semantics.
 
 Saved-byte NewsWeb reprocessing recovered 15 of those 17 quarantined documents and produced 17 current events: standard MAR purchases/sales, a non-cash gift, a bond disposal with nominal volume, an option grant without assigning the underlying-share ISIN to the option, English KRT-1500, an AFM two-fill disclosure with its rounded aggregate retained but unselected, Schouw option exercise plus sale, and Thor Medical private-placement allocation plus a neutral share-lending transfer. A final offline replay checked all 38 documents, created no new versions, and retained only `681380` (referenced forms absent) and `681718` (transaction date unresolved) as quarantines.
 
 The BaFin recent-register adapter was then run for transaction dates 01-08 September 2026. Its stable repeat discovered 20 notifications, reused all 20, accepted no duplicates, quarantined none, and returned `success`. The accepted data contains 20 current events and 28 reported price/monetary-volume rows; all 28 quantities remain explicitly null because the public register labels monetary consideration as `Volumen` and does not publish unit quantity in these details.
 
-Canonical database checks after migration 012 and evidence replay: integrity `ok`; 0 foreign-key violations; 362 current events; 578 event versions; 385 source records and 782 immutable raw objects. Current-event sources: Switzerland 36, Germany BaFin 20, Germany archive 27, Denmark 6, France 61, Netherlands 41, Norway 52, Sweden 113 and synthetic controls 6.
+Canonical database checks after migration 013 and evidence replay: integrity `ok`; 0 foreign-key violations; 383 current events; 629 event versions; 405 source records and 854 immutable raw objects. Current-event sources: Switzerland 36, Germany BaFin 20, Germany archive 27, Denmark 6, France 61, Netherlands 62, Norway 52, Sweden 113 and synthetic controls 6.
 
 The Unternehmensregister archive route was validated on publication date 19 December 2016. It discovered 27 explicit PDMR publications, parsed German, English and numbered Article 19 layouts with zero quarantines, and repeated with 27 unchanged semantic documents. Stable identity comes from each detail's official `jobNumber`; opaque search payloads are intentionally not identifiers because they change on every query. Ephemeral Next.js script state is excluded from semantic hashing while every fetched HTML response remains immutable raw evidence. Legacy aggregate labels that attach currency to both values remain raw-only, normalized quantity/price are null, and all archive aggregate rows are excluded from analytics. German and English publications remain separate official filing evidence rather than being silently merged.
 
@@ -62,7 +62,7 @@ The original message remains in the real corpus, now with its PDF attachment. Th
 
 - No adapter passed the production-ready gate of stable multi-page live retrieval and 50 independently audited observations.
 - Live discovery and stable repeat ingestion are demonstrated for Norway, Sweden, Germany BaFin and Unternehmensregister, Switzerland, France and Netherlands. The installed scheduler has fired automatically and through a manual Task Scheduler launch; all sources completed in run `run_b8885a5dcd7d44d491dd3f31b3c177a2`, with controlled overall exit code 2 solely for a retained Norway evidence quarantine. Real correction-before-original, process termination injection and OCR extraction remain untested.
-- Independent evidence review passed 50/50 current events for France and Sweden after correcting every initially identified discrepancy. Detailed reviewer decisions remain in ignored local CSV manifests; aggregate evidence is recorded in `docs/audit_results.md`.
+- Independent evidence review passed 50/50 current events for France, Sweden, Netherlands and Norway after correcting every initially identified discrepancy. Detailed reviewer decisions remain in ignored local CSV manifests; aggregate evidence is recorded in `docs/audit_results.md`.
 - The Windows task is installed and `Ready`, but its first scheduled execution has not yet been observed.
 - Commercial redistribution and feed rights remain unresolved for every source.
 - PostgreSQL dependency scan over Python/TOML/SQL/JSON/XML returned no matches.

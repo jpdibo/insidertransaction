@@ -100,6 +100,21 @@ class AdapterContractTest(unittest.TestCase):
         self.assertEqual([row["representation"] for row in group["rows"]], ["individual", "individual", "aggregate"])
         self.assertEqual((group["rows"][0]["price_amount_reported"], group["rows"][0]["quantity"]), ("10.25", "2000.00"))
 
+    def test_nl_afm_aggregates_do_not_merge_distinct_transaction_types(self):
+        fields = '''<span class="cc-em--detail-list__label">Notifiable</span><span class="cc-em--detail-list__value"><span>Jane Doe</span></span>
+        <span class="cc-em--detail-list__label">Issuing institution</span><span class="cc-em--detail-list__value"><span>Aegon Ltd.</span></span>
+        <span class="cc-em--detail-list__label">Position/Status</span><span class="cc-em--detail-list__value"><span>Board member</span></span>
+        <span class="cc-em--detail-list__label">Transaction</span><span class="cc-em--detail-list__value"><span>27 aug 2026</span></span>'''
+        detail_rows = '''<tr><td>Conditional share award</td><td></td><td>Verwerving</td><td>Dividend</td><td>Nee</td><td>OTC</td><td>0,00</td><td>9.294,00</td><td>EUR</td></tr>
+        <tr><td>Conditional share award</td><td></td><td>Verwerving</td><td>voorwaardelijke toekenning</td><td>Nee</td><td>OTC</td><td>0,00</td><td>322.872,00</td><td>EUR</td></tr>'''
+        aggregate_rows = '''<tr><td>Conditional share award</td><td></td><td>Verwerving</td><td>Dividend</td><td>OTC</td><td>0,00</td><td>9.294,00</td><td>EUR</td></tr>
+        <tr><td>Conditional share award</td><td></td><td>Verwerving</td><td>voorwaardelijke toekenning</td><td>OTC</td><td>0,00</td><td>322.872,00</td><td>EUR</td></tr>'''
+        page = f'''<html>{fields}<h2>Transactions</h2><table><tbody>{detail_rows}</tbody></table>
+        <h2>Aggregated information</h2><table><tbody>{aggregate_rows}</tbody></table></html>'''.encode()
+        filing = parse_nl_afm(page, {"native_record_id": "sample", "url": "https://example.test", "transaction_date": "2026-08-27"})["filings"][0]
+        self.assertEqual(len(filing["transaction_groups"]), 2)
+        self.assertEqual([[row["quantity"] for row in group["rows"]] for group in filing["transaction_groups"]], [["9294.00", "9294.00"], ["322872.00", "322872.00"]])
+
     def test_unternehmensregister_search_filters_explicit_pdmr_titles(self):
         page = '''<html>Suchergebnis publicationCategory<table><tr><td><a data-testid="normal-pub" href="/de/publication?payload=abc123">Meldung von Personen, die Führungsaufgaben wahrnehmen</a> Datum: 19.12.2016</td></tr><tr><td><a data-testid="normal-pub" href="/de/publication?payload=other">Jahresabschluss</a> Datum: 19.12.2016</td></tr></table><a href="/de/suche?from=30">2</a></html>'''
         records, offsets = ureg_search_rows(page.encode())
@@ -193,12 +208,13 @@ class AdapterContractTest(unittest.TestCase):
         Description of the financial instrument, type of instrument Identification code Shares in Pexip Holding ASA (ISIN: NO0010840507)
         b)Nature of the transaction Sale of shares c)Price(s) and volume(s) Price(s) Volume(s) NOK 74.4 4,048 shares
         d)Aggregated information Aggregated volume 4,048 shares Aggregated price NOK 301,171.2
-        e)Date of the transaction 2026-09-08 f)Place of the transaction MIC: XOSL"""
+        e)Date of the transaction 2026-09-08 f)Place of the transaction MIC: XOSL Pexip | Public | Anyone"""
         filing = _compact_english_form({"messageId": 681853, "body": ""}, text)
         self.assertIsNotNone(filing)
         group = filing["transaction_groups"][0]
         self.assertEqual((group["action"], group["trade_date"], group["instrument"]["isin_raw"]), ("disposal", "2026-09-08", "NO0010840507"))
         self.assertEqual((group["rows"][0]["price_amount_reported"], group["rows"][0]["quantity"]), ("74.4", "4048"))
+        self.assertEqual((group["venue_raw"], group["rows"][0]["representation"]), ("MIC: XOSL", "individual"))
 
     def test_compact_option_form_does_not_assign_underlying_isin(self):
         text = """1 Details of the Primary Insider/Related Party a) Name Timothy Herpin
@@ -212,6 +228,7 @@ class AdapterContractTest(unittest.TestCase):
         instrument = filing["transaction_groups"][0]["instrument"]
         self.assertEqual(instrument["instrument_type"], "option")
         self.assertNotIn("isin_raw", instrument)
+        self.assertEqual(instrument["underlying_isin_raw"], "NO0010405780")
         self.assertIn("reported_isin_identifies_underlying_share_not_option", filing["quality_issues"])
 
     def test_body_embedded_newsweb_form(self):
@@ -284,9 +301,10 @@ class AdapterContractTest(unittest.TestCase):
         4. Details of the transaction(s) a) Description Shares DK0010253921 b) Nature of the transaction {nature}
         c) Price(s) and volume(s) Price(s) Volume(s) DKK {price} 25,000 shares d) Aggregated information
         e) Date of the transaction 2 September 2026 f) Place of transaction Outside a trading venue"""
-        text = "Aktieselskabet Schouw & Co.\n" + template.format(nature="Exercise of options", price="571.89") + "\n" + template.format(nature="Sale of shares in connection with exercise of options", price="780.00")
+        text = "Aktieselskabet Schouw & Co.\n" + template.format(nature="Exercise of options", price="571.89").replace("Outside a trading venue", "Outside a trading venue 2/2") + "\n" + template.format(nature="Sale of shares in connection with exercise of options", price="780.00")
         filing = _schouw_forms({"messageId": 681625, "body": ""}, text)
         self.assertEqual([group["action"] for group in filing["transaction_groups"]], ["exercise", "disposal"])
+        self.assertEqual(filing["transaction_groups"][0]["venue_raw"], "Outside a trading venue")
 
     def test_thor_share_lending_is_not_a_purchase_or_disposal(self):
         template = """NOTIFICATION OF TRANSACTIONS PURSUANT TO THE MARKET ABUSE REGULATION ARTICLE 19
@@ -299,6 +317,7 @@ class AdapterContractTest(unittest.TestCase):
         filing = _thor_forms({"messageId": 681637, "issuerName": "Thor Medical ASA"}, text)
         self.assertEqual([group["action"] for group in filing["transaction_groups"]], ["acquisition", "transfer"])
         self.assertEqual(filing["transaction_groups"][1]["consideration"], "none")
+        self.assertEqual([group["instrument"]["isin_raw"] for group in filing["transaction_groups"]], ["NO0010597883", "NO0010597883"])
 
     def test_bafin_search_and_party_identity(self):
         search = '''<html><form id="sucheForm"></form><h2>Auswahl Emittent</h2><table id="emittent"><tbody><tr>
@@ -383,6 +402,13 @@ Example AS
         self.assertEqual(filing["transacting_party"]["related_pdmr_name_raw"], "Alexander Manager")
         self.assertEqual(filing["transacting_party"]["pdmr_or_pca"], "pca")
         self.assertEqual(filing["transaction_groups"][0]["action"], "acquisition")
+        option_filing = _krt_form(
+            {"messageId": 2, "issuerName": "Example AS", "correctionForMessageId": 0},
+            text.replace(f"Kj{replacement}p", "Erverv av aksjeopsjon"),
+        )
+        option_group = option_filing["transaction_groups"][0]
+        self.assertEqual((option_group["action"], option_group["instrument"]["instrument_type"]), ("acquisition", "option"))
+        self.assertEqual((option_group["rows"][0]["quantity_unit"], option_group["instrument"]["underlying_isin_raw"]), ("options", "NO0013531616"))
 
     def test_sweden_search_count_and_report_identity(self):
         page = """<html><h1>S&#246;k Insynshandel</h1><table><thead><tr><th>Transaktionsdatum</th><th>Rapportsammanst%C3%A4llning</th></tr></thead><tbody><tr>

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import warnings
+from difflib import SequenceMatcher
 from datetime import datetime
 from io import BytesIO
 from typing import Any
@@ -16,7 +17,7 @@ from pypdf import PdfReader
 
 from .fixture_json import ParseError
 
-PARSER_VERSION = "newsweb-message-v11"
+PARSER_VERSION = "newsweb-message-v12"
 
 
 def extract_pdf_text(data: bytes) -> str:
@@ -44,7 +45,7 @@ def _group(*, locator: str, instrument: str, instrument_type: str, nature: str, 
            mechanism: str, consideration: str, exposure: str, trade_date: str | None,
            quantity_raw: str, quantity: str, quantity_unit: str = "shares", price_raw: str | None = None,
            price: str | None = None, currency: str | None = None, venue: str | None = None,
-           eligible: bool = False, exclusion: str | None = None) -> dict:
+            eligible: bool = False, exclusion: str | None = None, representation: str = "aggregate") -> dict:
     return {
         "group_locator": locator, "event_key": locator,
         "instrument": {"name_raw": instrument, "instrument_type": instrument_type},
@@ -53,7 +54,7 @@ def _group(*, locator: str, instrument: str, instrument_type: str, nature: str, 
         "trade_date_precision": "day" if trade_date else "unknown", "venue_raw": venue,
         "aggregation_reconciliation": "not_applicable", "eligible_own_money_signal": eligible,
         "signal_exclusion_reason": exclusion,
-        "rows": [{"row_locator": f"{locator}-row-1", "representation": "aggregate", "price_raw": price_raw,
+        "rows": [{"row_locator": f"{locator}-row-1", "representation": representation, "price_raw": price_raw,
                   "price_amount_reported": price, "price_currency_normalized": currency,
                   "quote_unit_scale": "1", "quantity_raw": quantity_raw, "quantity": quantity,
                   "quantity_unit": quantity_unit, "consideration_currency": currency}],
@@ -77,6 +78,24 @@ def _restore_body_text(value: str, body: str) -> str:
     pattern = "".join("." if char == "�" else r"\s*" if char.isspace() else re.escape(char) for char in value)
     match = re.search(pattern, body, re.IGNORECASE)
     return " ".join(match.group(0).split()) if match else value.replace("Kla veness", "Klaveness")
+
+
+def _reported_isin(text: str) -> str | None:
+    labelled = re.search(r"(?:ISIN|IDENTIFICATION CODE)\s*:?\s*([A-Z]{2}(?:\s*[A-Z0-9]){9}\s*\d)\b", text, re.IGNORECASE)
+    generic = re.search(r"\b([A-Z]{2}(?:\s*[A-Z0-9]){9}\s*\d)\b", text, re.IGNORECASE)
+    match = labelled or generic
+    return re.sub(r"\s+", "", match.group(1)).upper() if match else None
+
+
+def _restore_wrapped_name(value: str, body: str) -> str:
+    body_name = re.search(r"^(.+?),\s*.+?,\s*has on ", body, re.IGNORECASE | re.DOTALL)
+    parts = value.split()
+    body_parts = body_name.group(1).split() if body_name else []
+    if len(parts) > 2 and len(body_parts) == 2 and parts[0].casefold() == body_parts[0].casefold():
+        collapsed = parts[0] + " " + "".join(parts[1:])
+        if SequenceMatcher(None, collapsed.casefold(), body_name.group(1).casefold()).ratio() >= 0.9:
+            return collapsed
+    return value
 
 
 def _direct_body(message: dict, pdf_text: str) -> dict | None:
@@ -173,7 +192,8 @@ def _english_forms(message: dict, pdf_text: str) -> list[dict] | None:
         lei_match = re.search(r"(?im)^\s*b\)\s+(?:LEI|LEI code)\s+([A-Z0-9]{20})", section)
         if len(names) < 2 or not role_match:
             continue
-        party_name, issuer_name = names[0].strip(), names[1].strip()
+        party_name = _restore_wrapped_name(names[0].strip(), message.get("body", ""))
+        issuer_name = names[1].strip()
         role = role_match.group(1).strip()
         transaction_starts = list(re.finditer(r"(?im)^\s*4(?:\.\d+)?\s+Details of the transaction", section))
         groups = []
@@ -184,7 +204,7 @@ def _english_forms(message: dict, pdf_text: str) -> list[dict] | None:
             nature_match = re.search(r"(?ims)^\s*b\)\s+Nature of the transaction\s+(.+?)(?=^\s*c\)\s+Price)", tx)
             date_match = re.search(r"(?im)^\s*e\)\s+Date of the transaction\s+(.+?)\s*$", tx)
             place_match = re.search(r"(?im)^\s*f\)\s+Place of the transaction\s+(.+?)\s*$", tx)
-            isin_match = re.search(r"ISIN\s*:?\s*([A-Z]{2}[A-Z0-9]{10})", tx, re.IGNORECASE)
+            isin = _reported_isin(tx)
             instrument_match = re.search(r"(?ims)^\s*a\)\s+Description of the financial\s+(.+?)(?=^\s*b\)\s+Nature)", tx)
             price_volume = re.search(r"\b(EUR|GBP|NOK|SEK|DKK|CHF|USD)\s+([\d.,]+)\s+([\d,]+)\s*$", tx, re.MULTILINE)
             if not all((nature_match, date_match, price_volume)):
@@ -208,7 +228,6 @@ def _english_forms(message: dict, pdf_text: str) -> list[dict] | None:
                 body_date = datetime.strptime(body_date_match.group(1), "%d %B %Y").date().isoformat()
                 if body_date != parsed_date:
                     issues.append(f"conflicting_trade_date:body={body_date},attachment={parsed_date}")
-                    parsed_date = None
             lower = nature.lower()
             if "tax" in lower and ("sale" in lower or "disposal" in lower):
                 action, mechanism = "disposal", "tax_related_sale"
@@ -225,6 +244,10 @@ def _english_forms(message: dict, pdf_text: str) -> list[dict] | None:
             zero_price = price in {"0", "0.0", "0.00"}
             consideration = "none" if zero_price and action in {"grant", "transfer", "other"} else "cash_paid_received"
             instrument_text = " ".join(instrument_match.group(1).split()) if instrument_match else "Unresolved instrument"
+            instrument_text = re.sub(r"^instrument(?:,\s*type of instrument)?\s+", "", instrument_text, flags=re.IGNORECASE)
+            instrument_text = re.sub(r"^Identification code\s+", "", instrument_text, flags=re.IGNORECASE)
+            instrument_text = re.sub(r"\s+Identification code.*$", "", instrument_text, flags=re.IGNORECASE)
+            instrument_text = re.sub(r"\s*\(ISIN\s*:\s*[A-Z0-9]+\)\.?$", "", instrument_text, flags=re.IGNORECASE)
             instrument_type = "option" if "option" in instrument_text.lower() or "rsu" in instrument_text.lower() else "ordinary_share"
             group = _group(locator=f"person-{person_ordinal}-transaction-{transaction_ordinal}", instrument=instrument_text,
                            instrument_type=instrument_type, nature=nature, action=action, mechanism=mechanism,
@@ -232,9 +255,10 @@ def _english_forms(message: dict, pdf_text: str) -> list[dict] | None:
                            trade_date=parsed_date, quantity_raw=quantity_raw, quantity=quantity,
                            price_raw=f"{currency} {price_raw}", price=price, currency=currency,
                            venue=place_match.group(1).strip() if place_match else None, eligible=False,
-                           exclusion="not_an_own_money_purchase" if action != "acquisition" else "investment_discretion_unresolved")
-            if isin_match:
-                group["instrument"]["isin_raw"] = isin_match.group(1)
+                           exclusion="not_an_own_money_purchase" if action != "acquisition" else "investment_discretion_unresolved",
+                           representation="individual")
+            if isin:
+                group["instrument"]["isin_raw"] = isin
             groups.append(group)
         if groups:
             pca = "closely associated" in role.lower()
@@ -311,7 +335,7 @@ def _compact_english_form(message: dict, pdf_text: str) -> dict | None:
     else:
         action, mechanism, consideration, exposure = "other", "unknown", "unknown", "unknown"
     instrument_block = " ".join(instrument_section.group(0).split())
-    isin_match = re.search(r"ISIN\s*:?[\s]*([A-Z]{2}(?:\s*[A-Z0-9]){10})", instrument_block, re.IGNORECASE)
+    isin = _reported_isin(instrument_block)
     if "bond" in instrument_block.lower():
         instrument, instrument_type, quantity_unit = "FRN senior secured bonds", "bond", "nominal_amount"
     elif re.search(r"\boptions?\b", instrument_block, re.IGNORECASE):
@@ -335,7 +359,7 @@ def _compact_english_form(message: dict, pdf_text: str) -> dict | None:
         party["related_pdmr_name_raw"] = related.group(1).strip()
     raw_date = date_match.group(1)
     trade_date = raw_date if re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw_date) else datetime.strptime(raw_date, "%d %B %Y").date().isoformat()
-    venue = re.sub(r"\s+(?:External|Page \d+.*)$", "", " ".join(place_match.group(1).split())).strip()
+    venue = re.sub(r"\s+(?:External|Page \d+.*|Pexip\s*\|.*)$", "", " ".join(place_match.group(1).split())).strip()
     venue = _restore_body_text(venue, message.get("body", ""))
     if "transfer" in lower and action == "acquisition":
         issues.append("body_attachment_nature_wording_differs")
@@ -346,10 +370,12 @@ def _compact_english_form(message: dict, pdf_text: str) -> dict | None:
         price_raw=f"{currency} {price_raw}" if currency and price_raw is not None else price_raw,
         price=price, currency=currency, venue=venue, eligible=False,
         exclusion="not_an_own_money_purchase" if action != "acquisition" else "investment_discretion_unresolved",
+        representation="individual",
     )
-    if isin_match and instrument_type != "option":
-        group["instrument"]["isin_raw"] = re.sub(r"\s+", "", isin_match.group(1)).upper()
-    elif isin_match:
+    if isin and instrument_type != "option":
+        group["instrument"]["isin_raw"] = isin
+    elif isin:
+        group["instrument"]["underlying_isin_raw"] = isin
         issues.append("reported_isin_identifies_underlying_share_not_option")
     filing = _filing(message, f"message-{message['messageId']}-compact-form-1", issuer_name, party, [group], issues)
     filing["issuer"]["lei_raw"] = lei
@@ -425,7 +451,12 @@ def _krt_form(message: dict, pdf_text: str) -> dict | None:
     if nature_detail and "Du har ikke" not in nature_detail.group(1):
         nature += ": " + nature_detail.group(1).strip()
     lower = nature.lower()
-    if lower.startswith("kj"):
+    option_transaction = "opsjon" in lower
+    if option_transaction and lower.startswith("aksept"):
+        action, mechanism, exposure = "grant", "compensation_grant", "increase"
+    elif option_transaction and lower.startswith("erverv"):
+        action, mechanism, exposure = "acquisition", "unknown", "increase"
+    elif lower.startswith("kj"):
         action, mechanism, exposure = "acquisition", "unknown", "increase"
     elif lower.startswith("salg"):
         action, mechanism, exposure = "disposal", "unknown", "decrease"
@@ -438,16 +469,19 @@ def _krt_form(message: dict, pdf_text: str) -> dict | None:
     price_raw = price_match.group(1).strip().replace(" ", "").replace(",", ".")
     quantity_raw = volume_match.group(1).strip()
     zero = price_raw in {"0", "0.0", "0.00"}
-    group = _group(locator="krt-transaction-1", instrument=instrument_match.group(1).strip() if instrument_match else "Unresolved instrument",
-                   instrument_type="ordinary_share" if instrument_match and "aksje" in instrument_match.group(1).lower() else "other",
+    instrument = "Share options" if option_transaction else instrument_match.group(1).strip() if instrument_match else "Unresolved instrument"
+    group = _group(locator="krt-transaction-1", instrument=instrument,
+                   instrument_type="option" if option_transaction else "ordinary_share" if instrument_match and "aksje" in instrument_match.group(1).lower() else "other",
                    nature=nature, action=action, mechanism=mechanism, consideration="none" if zero else "cash_paid_received",
                    exposure=exposure, trade_date=datetime.strptime(date_match.group(1), "%d.%m.%Y").date().isoformat(),
-                   quantity_raw=quantity_raw, quantity=quantity_raw.replace(" ", ""),
+                   quantity_raw=quantity_raw, quantity=quantity_raw.replace(" ", ""), quantity_unit="options" if option_transaction else "shares",
                    price_raw=f"{price_raw} {currency_match.group(1)}", price=price_raw, currency=currency_match.group(1),
                    venue=venue_match.group(1).strip() if venue_match else None, eligible=False,
                    exclusion="not_an_own_money_purchase" if action != "acquisition" else "investment_discretion_unresolved")
-    if isin_match:
+    if isin_match and not option_transaction:
         group["instrument"]["isin_raw"] = isin_match.group(1)
+    elif isin_match:
+        group["instrument"]["underlying_isin_raw"] = isin_match.group(1)
     reference_match = re.search(r"Referansenummer:\s*([^\s]+)", pdf_text)
     source_locator = f"krt-{reference_match.group(1)}" if reference_match else f"message-{message['messageId']}-krt-1"
     filing = _filing(message, source_locator, issuer, {
@@ -608,7 +642,8 @@ def _schouw_forms(message: dict, pdf_text: str) -> dict | None:
             consideration="cash_paid_received", exposure="increase" if action == "exercise" else "decrease" if action == "disposal" else "unknown",
             trade_date=datetime.strptime(date_match.group(1), "%d %B %Y").date().isoformat(), quantity_raw=quantity_raw,
             quantity=quantity_raw.replace(",", ""), price_raw=f"{currency} {price}", price=price, currency=currency,
-            venue=venue_match.group(1).strip(), eligible=False, exclusion="option_exercise" if action == "exercise" else "not_an_own_money_purchase",
+            venue=re.sub(r"\s+\d+/\d+$", "", venue_match.group(1).strip()), eligible=False,
+            exclusion="option_exercise" if action == "exercise" else "not_an_own_money_purchase",
         )
         group["instrument"]["isin_raw"] = isin_match.group(1)
         groups.append(group)
@@ -638,9 +673,9 @@ def _thor_forms(message: dict, pdf_text: str) -> dict | None:
         row_match = re.search(r"c\) Price\(s\) and volume\(s\).*?\b(NOK)\s+([\d.]+)\s+([\d,]+)", section)
         date_match = re.search(r"e\) Date of the transaction\s+(20\d{2}\s*-\s*\d{2}\s*-\s*\d{2});\s*([^\s]+\s+CEST)", section)
         venue_match = re.search(r"f\) Place of the transaction\s+(.+?)\s*$", section)
-        isin_match = re.search(r"\b(NO[A-Z0-9]{10})\b", section)
-        if not all((name_match, role_match, issuer_match, nature_match, row_match, date_match, venue_match, isin_match)):
-            raise ParseError(f"Thor Medical page {ordinal} fields: name={bool(name_match)},role={bool(role_match)},issuer={bool(issuer_match)},nature={bool(nature_match)},row={bool(row_match)},date={bool(date_match)},venue={bool(venue_match)},isin={bool(isin_match)}")
+        isin = _reported_isin(section)
+        if not all((name_match, role_match, issuer_match, nature_match, row_match, date_match, venue_match, isin)):
+            raise ParseError(f"Thor Medical page {ordinal} fields: name={bool(name_match)},role={bool(role_match)},issuer={bool(issuer_match)},nature={bool(nature_match)},row={bool(row_match)},date={bool(date_match)},venue={bool(venue_match)},isin={bool(isin)}")
         values = (name_match.group(1).strip(), role_match.group(1).strip(), issuer_match.group(1).strip(), issuer_match.group(2))
         if party_name is None:
             party_name, role, issuer_name, lei = values
@@ -659,7 +694,7 @@ def _thor_forms(message: dict, pdf_text: str) -> dict | None:
             price_raw=f"{currency} {price}", price=price, currency=currency, venue=venue_match.group(1).strip(),
             eligible=False, exclusion="non_cash_share_loan" if lending else "private_placement_allocation",
         )
-        group["instrument"]["isin_raw"] = isin_match.group(1)
+        group["instrument"]["isin_raw"] = isin
         groups.append(group)
     filing = _filing(message, f"message-{message['messageId']}-thor-1", issuer_name, {
         "name_raw": party_name, "party_type": "legal_entity", "status_raw": role, "pdmr_or_pca": "pca",

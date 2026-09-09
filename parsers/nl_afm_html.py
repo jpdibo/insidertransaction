@@ -8,7 +8,7 @@ from typing import Any
 from .fixture_json import ParseError
 
 
-PARSER_VERSION = "nl-afm-detail-v2"
+PARSER_VERSION = "nl-afm-detail-v3"
 
 
 def _text(fragment: str) -> str:
@@ -118,7 +118,8 @@ def parse(data: bytes, metadata: dict[str, Any]) -> dict[str, Any]:
         instrument_raw, isin, category, transaction_type, venue, price_raw, quantity_raw, currency = cells
         action, _ = _action(category or transaction_type)
         matches = [group for group in groups if group["instrument"].get("isin_raw") == (isin or None)
-                   and group["action"] == action and (group.get("venue_raw") or "") == venue]
+                   and group["action"] == action and group["nature_raw"] == f"{category} / {transaction_type}"
+                   and (group.get("venue_raw") or "") == venue]
         if not matches:
             continue
         target = matches[0]
