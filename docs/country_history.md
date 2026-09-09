@@ -21,6 +21,7 @@ This ledger records what was done for each of the 17 in-scope jurisdictions. Dat
 - 2026-09-08: Verified date, paging, transaction, security, management-role and related-party code meanings.
 - 2026-09-08: Implemented `ingestion/six.py` and `parsers/six_json.py`.
 - 2026-09-08: Ingested 36 anonymous-party events and repeated with 36 unchanged and zero quarantines.
+- 2026-09-09: Enabled one-day historical backfill, but the 25 August request timed out twice across all configured retries; no checkpoint advanced.
 - Current state: `live_verified`; three-year public retention and redistribution rights remain constraints.
 - Next gate: independently audit 50 observations, requiring a broader sample than currently stored.
 
@@ -32,6 +33,7 @@ This ledger records what was done for each of the 17 in-scope jurisdictions. Dat
 - 2026-09-08: Replaced unstable encrypted search-payload IDs with stable detail `jobNumber` identities.
 - 2026-09-08: Added German, English and numbered Article 19 archive layouts and corrected `Verkauf` classification.
 - 2026-09-08: Validated 27 archive publications on 2016-12-19 with a final 27-unchanged replay and zero quarantines.
+- 2026-09-09: Enabled one-day BaFin backfill and accepted 13 additional events from 25-27 August, reaching 33. The 28 August window then timed out twice without checkpoint advancement.
 - Current state: BaFin `adapter_tested`; archive `sample_verified`. Ambiguous legacy aggregate labels remain raw-only and excluded from analytics.
 - Next gate: 50-observation audit, broader archive dates and reviewed bilingual-publication event links.
 
@@ -44,6 +46,7 @@ This ledger records what was done for each of the 17 in-scope jurisdictions. Dat
 - 2026-09-08: Retained seven announcements from 2026-09-06 through 2026-09-08 and accepted six transaction events.
 - 2026-09-08: Kept `300014006` quarantined because its public package omits the transaction form; correction `300014007` separately includes and parses the form.
 - 2026-09-08: Repeated the 2026-09-08 slice with three unchanged.
+- 2026-09-09: Advanced bounded coverage through 9 September. The 8 September slice replayed three unchanged, 9 September had zero records, and live `300014006` remained byte-identical with no added form.
 - Current state: `adapter_tested`, disabled from daily scheduling while the sample has an evidence gap.
 - Next gate: broaden dates/layouts and obtain the missing public form only if authoritative evidence appears.
 

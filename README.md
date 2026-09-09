@@ -9,7 +9,7 @@ Private research-pilot launch candidate for disclosed PDMR/PCA and Swiss managem
 - Official adapters cover Norway NewsWeb, Sweden FI, Switzerland SIX, Germany BaFin and Unternehmensregister, France AMF, Netherlands AFM, and Denmark OAM.
 - Discovery counts, immutable evidence, stable source identities, exact decimals, PCA relationships, revisions, retractions and aggregate/detail reconciliation are retained where the source supports them. Unsupported or incomplete evidence is quarantined.
 - Six synthetic events exercise required edge cases and are visibly sourced from `offline_fixture_corpus`; they are excluded from production coverage claims.
-- The local canonical database contains 383 current events: 377 official events across seven jurisdictions and six synthetic controls. See `docs/country_history.md` for the step-by-step jurisdiction ledger.
+- The local canonical database contains 396 current events: 390 official events across seven jurisdictions and six synthetic controls. See `docs/country_history.md` for the step-by-step jurisdiction ledger.
 
 ## Commands
 
