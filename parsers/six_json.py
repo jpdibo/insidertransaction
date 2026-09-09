@@ -6,7 +6,7 @@ from datetime import datetime
 from parsers.fixture_json import ParseError
 
 
-PARSER_VERSION = "six-management-v1"
+PARSER_VERSION = "six-management-v2"
 
 SECURITIES = {
     "2": ("Conversion rights", "convertible"),
@@ -58,7 +58,7 @@ def parse(data: bytes) -> dict:
         "filings": [{
             "source_locator": notification_id,
             "native_notification_reference": correctee or notification_id,
-            "notification_status": "correction" if item.get("correctorId") else "initial",
+            "notification_status": "correction" if correctee else "initial",
             "amends_native_reference": correctee or None,
             "issuer": {"name_raw": str(item["notificationSubmitter"]), "lei_raw": None},
             "transacting_party": {

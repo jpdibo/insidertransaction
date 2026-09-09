@@ -178,6 +178,12 @@ class AdapterContractTest(unittest.TestCase):
         self.assertEqual((group["action"], group["trade_date"], group["venue_mic"]), ("acquisition", "2026-09-07", "XSWX"))
         self.assertEqual((group["rows"][0]["quantity"], group["rows"][0]["consideration_reported"]), ("14.0", "2016.0"))
 
+    def test_six_correctee_marks_notification_as_correction(self):
+        payload = parse_six(b'''{"status":"Ok","totalCount":1,"itemList":[{"correctorId":"","obligorRelatedPartyInd":"","transactionSize":1460.0,"transactionAmountPerSecurityCHF":65.87164383561644,"obligorFunctionCode":"1","transactionAmountCHF":96172.6,"swxListed":"T","notificationSubmitter":"dormakaba Holding AG","ISIN":"CH1486524122","transactionConditions":"","transactionDate":20260904,"correcteeId":"T1Q9400060","notificationSubmitterId":"DOKA","notificationId":"T1Q9400078","buySellIndicator":"2","securityTypeCode":"7","securityDescription":""}]}''')
+        filing = payload["filings"][0]
+        self.assertEqual(filing["notification_status"], "correction")
+        self.assertEqual(filing["amends_native_reference"], "T1Q9400060")
+
     def test_compact_newsweb_form_inherits_transaction_currency(self):
         text = """1 Details of the primary insider / person closely associated
         a) Name Kona BidCo AS
@@ -348,6 +354,43 @@ class AdapterContractTest(unittest.TestCase):
         self.assertEqual(row["price_amount_reported"], "5.50")
         self.assertEqual(row["consideration_reported"], "12661.00")
         self.assertIsNone(row["quantity"])
+
+    def test_bafin_detail_uses_aggregate_when_detail_row_is_blank(self):
+        fixture = Path(__file__).parent / "fixtures" / "real" / "bafin" / "detail-34774.html"
+        data = fixture.read_bytes().replace(
+            b"<tbody><tr><td>5,50 EUR</td><td>12.661,00 EUR</td></tr></tbody>",
+            b"<tbody><tr><td></td><td></td></tr></tbody>",
+        )
+        payload = parse_bafin(data, {
+            "native_record_id": "34774:34782", "meldung_id": "34774", "party_id": "34782",
+            "url": "https://portal.mvp.bafin.de/detail", "trade_date": "02.09.2026",
+            "activated_at": "04.09.2026 08:46:39", "venue": "Xetra", "position": "in enger Beziehung",
+        })
+        group = payload["filings"][0]["transaction_groups"][0]
+        self.assertEqual(group["aggregation_reconciliation"], "aggregate_only_monetary_volume_without_quantity")
+        self.assertEqual((group["rows"][0]["representation"], group["rows"][0]["price_amount_reported"]), ("aggregate", "5.50"))
+
+    def test_bafin_sonstiges_uses_explicit_explanation_action(self):
+        fixture = Path(__file__).parent / "fixtures" / "real" / "bafin" / "detail-34774.html"
+        original = fixture.read_bytes()
+        cases = (
+            (b"Kauf, abgewickelt ueber Gemeinschaftsdepot", "acquisition"),
+            (b"Erwerb von Aktien im Rahmen eines Aktienoptionsprogramms", "acquisition"),
+            (b"Einr\xc3\xa4umung (Verkauf) von Put-Optionen", "disposal"),
+            (b"Erwerb von Aktien durch Schenkung", "gift"),
+        )
+        for explanation, expected in cases:
+            with self.subTest(explanation=explanation):
+                data = original.replace(b">Kauf</td>", b">Sonstiges</td>").replace(
+                    b'<tr><th colspan="2">Erl\xc3\xa4uterung</th></tr><tr><td colspan="2"></td></tr>',
+                    b'<tr><th colspan="2">Erl\xc3\xa4uterung</th></tr><tr><td colspan="2">' + explanation + b"</td></tr>",
+                )
+                payload = parse_bafin(data, {
+                    "native_record_id": "34774:34782", "meldung_id": "34774", "party_id": "34782",
+                    "url": "https://portal.mvp.bafin.de/detail", "trade_date": "02.09.2026",
+                    "activated_at": "04.09.2026 08:46:39", "venue": "Xetra", "position": "in enger Beziehung",
+                })
+                self.assertEqual(payload["filings"][0]["transaction_groups"][0]["action"], expected)
 
     def test_bafin_linked_instrument_is_not_misclassified_as_bond(self):
         fixture = Path(__file__).parent / "fixtures" / "real" / "bafin" / "detail-34774.html"

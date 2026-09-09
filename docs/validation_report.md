@@ -1,6 +1,6 @@
 # Validation Report
 
-Validation updated: 09 September 2026. Host: Windows. Runtime: Conda `short_selling`, CPython 3.10.18, SQLite 3.50.3, pypdf 3.17.4. Result: **51 passed, 0 failed, 0 skipped**.
+Validation updated: 09 September 2026. Host: Windows. Runtime: Conda `short_selling`, CPython 3.10.18, SQLite 3.50.3, pypdf 3.17.4. Result: **54 passed, 0 failed, 0 skipped**.
 
 ## Executed Commands
 
@@ -11,13 +11,13 @@ Validation updated: 09 September 2026. Host: Windows. Runtime: Conda `short_sell
 & "C:\Users\jpdib\anaconda3\envs\short_selling\python.exe" -m insider_tracker daily --config "C:\insider_sales\config\sources.yaml" --database "C:\insider_sales\data\insiders.sqlite3" --raw-root "C:\insider_sales\data\raw"
 ```
 
-Final Conda test output on 09 September 2026 ended with `Ran 51 tests` and `OK`. Compilation emitted no errors. Regression coverage includes correction/retraction ordering, lock ownership races, nullable-identifier uniqueness, cross-source links, UTC scheduling, multilingual source layouts, deterministic audits, AFM exact transaction-type grouping, NewsWeb ISIN/option/venue handling, Sweden daily partitioning, and AMF comment-based aggregate/acquisition semantics.
+Final Conda test output on 09 September 2026 ended with `Ran 54 tests` and `OK`. Compilation emitted no errors. Regression coverage includes correction/retraction ordering, lock ownership races, nullable-identifier uniqueness, cross-source links, UTC scheduling, multilingual source layouts, deterministic audits, SIX amendment semantics, BaFin aggregate-only and explicit-explanation handling, AFM exact transaction-type grouping, NewsWeb ISIN/option/venue handling, Sweden daily partitioning, and AMF comment-based aggregate/acquisition semantics.
 
 Saved-byte NewsWeb reprocessing recovered 15 of those 17 quarantined documents and produced 17 current events: standard MAR purchases/sales, a non-cash gift, a bond disposal with nominal volume, an option grant without assigning the underlying-share ISIN to the option, English KRT-1500, an AFM two-fill disclosure with its rounded aggregate retained but unselected, Schouw option exercise plus sale, and Thor Medical private-placement allocation plus a neutral share-lending transfer. A final offline replay checked all 38 documents, created no new versions, and retained only `681380` (referenced forms absent) and `681718` (transaction date unresolved) as quarantines.
 
-The BaFin recent-register adapter was then run for transaction dates 01-08 September 2026. Its stable repeat discovered 20 notifications, reused all 20, accepted no duplicates, quarantined none, and returned `success`. The accepted data contains 20 current events and 28 reported price/monetary-volume rows; all 28 quantities remain explicitly null because the public register labels monetary consideration as `Volumen` and does not publish unit quantity in these details.
+The BaFin recent-register adapter was expanded with bounded one-day windows covering 18-20 and 25-31 August plus 01-09 September 2026. It contains 53 current events and 84 reported monetary rows. All quantities remain explicitly null because the public register labels monetary consideration as `Volumen` and does not publish unit quantity in these details. One disclosure publishes only aggregate price and monetary volume; that row is retained as aggregate without inferred quantity. The independent audit passes 50/50 events and all 81 selected rows in that sample.
 
-Canonical database checks after bounded BaFin expansion: integrity `ok`; 0 foreign-key violations; 396 current events; 642 event versions; 418 source records and 867 immutable raw objects. Current-event sources: Switzerland 36, Germany BaFin 33, Germany archive 27, Denmark 6, France 61, Netherlands 62, Norway 52, Sweden 113 and synthetic controls 6.
+Canonical database checks after bounded SIX and BaFin expansion and saved-byte correction replay: integrity `ok`; 0 foreign-key violations; 433 current events; 688 event versions; 455 source records and 904 immutable raw objects. Current-event sources: Switzerland 53, Germany BaFin 53, Germany archive 27, Denmark 6, France 61, Netherlands 62, Norway 52, Sweden 113 and synthetic controls 6.
 
 The Unternehmensregister archive route was validated on publication date 19 December 2016. It discovered 27 explicit PDMR publications, parsed German, English and numbered Article 19 layouts with zero quarantines, and repeated with 27 unchanged semantic documents. Stable identity comes from each detail's official `jobNumber`; opaque search payloads are intentionally not identifiers because they change on every query. Ephemeral Next.js script state is excluded from semantic hashing while every fetched HTML response remains immutable raw evidence. Legacy aggregate labels that attach currency to both values remain raw-only, normalized quantity/price are null, and all archive aggregate rows are excluded from analytics. German and English publications remain separate official filing evidence rather than being silently merged.
 
@@ -60,10 +60,10 @@ The original message remains in the real corpus, now with its PDF attachment. Th
 
 ## Not Passed / Not Run
 
-- No adapter passed the production-ready gate of stable multi-page live retrieval and 50 independently audited observations.
+- No adapter satisfies every production-readiness gate, including stable long-run retrieval and resolved use/redistribution rights; six sources now independently pass 50 observations.
 - Live discovery and stable repeat ingestion are demonstrated for Norway, Sweden, Germany BaFin and Unternehmensregister, Switzerland, France and Netherlands. The installed scheduler has fired automatically and through a manual Task Scheduler launch; all sources completed in run `run_b8885a5dcd7d44d491dd3f31b3c177a2`, with controlled overall exit code 2 solely for a retained Norway evidence quarantine. Real correction-before-original, process termination injection and OCR extraction remain untested.
-- Independent evidence review passed 50/50 current events for France, Sweden, Netherlands and Norway after correcting every initially identified discrepancy. Detailed reviewer decisions remain in ignored local CSV manifests; aggregate evidence is recorded in `docs/audit_results.md`.
-- The Windows task is installed and `Ready`, but its first scheduled execution has not yet been observed.
+- Independent evidence review passed 50/50 current events for France, Sweden, Netherlands, Norway, Switzerland and BaFin after correcting every initially identified discrepancy. Detailed reviewer decisions remain in ignored local CSV manifests; aggregate evidence is recorded in `docs/audit_results.md`.
+- The Windows task is installed and `Ready`; automatic and manual Task Scheduler executions have both been observed.
 - Commercial redistribution and feed rights remain unresolved for every source.
 - PostgreSQL dependency scan over Python/TOML/SQL/JSON/XML returned no matches.
 

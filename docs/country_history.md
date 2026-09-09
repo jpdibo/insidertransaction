@@ -22,8 +22,10 @@ This ledger records what was done for each of the 17 in-scope jurisdictions. Dat
 - 2026-09-08: Implemented `ingestion/six.py` and `parsers/six_json.py`.
 - 2026-09-08: Ingested 36 anonymous-party events and repeated with 36 unchanged and zero quarantines.
 - 2026-09-09: Enabled one-day historical backfill, but the 25 August request timed out twice across all configured retries; no checkpoint advanced.
+- 2026-09-09: Retried after endpoint recovery and accepted 17 events for 25 August, reaching 53 with zero quarantines.
+- 2026-09-09: Independent review initially passed 49/50. Corrected `correcteeId` amendment semantics, replayed all 53 saved details, expanded audit fields, and passed 50/50.
 - Current state: `live_verified`; three-year public retention and redistribution rights remain constraints.
-- Next gate: independently audit 50 observations, requiring a broader sample than currently stored.
+- Next gate: demonstrate stable repeat retrieval over a longer interval and resolve reuse terms.
 
 ## Germany (DE)
 
@@ -34,8 +36,10 @@ This ledger records what was done for each of the 17 in-scope jurisdictions. Dat
 - 2026-09-08: Added German, English and numbered Article 19 archive layouts and corrected `Verkauf` classification.
 - 2026-09-08: Validated 27 archive publications on 2016-12-19 with a final 27-unchanged replay and zero quarantines.
 - 2026-09-09: Enabled one-day BaFin backfill and accepted 13 additional events from 25-27 August, reaching 33. The 28 August window then timed out twice without checkpoint advancement.
+- 2026-09-09: Recovered the endpoint, expanded BaFin backward through 18-20 August, and reached 53 accepted events.
+- 2026-09-09: Retained an aggregate-only monetary disclosure without inferring quantity. Independent review initially passed 39/50; explicit `Sonstiges` explanations and duplicate audit rows were corrected, saved evidence was replayed, and the final audit passed 50/50 across 81 selected rows.
 - Current state: BaFin `adapter_tested`; archive `sample_verified`. Ambiguous legacy aggregate labels remain raw-only and excluded from analytics.
-- Next gate: 50-observation audit, broader archive dates and reviewed bilingual-publication event links.
+- Next gate: broader archive dates and reviewed bilingual-publication event links.
 
 ## Denmark (DK)
 

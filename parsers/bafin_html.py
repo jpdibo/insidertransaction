@@ -7,7 +7,7 @@ from typing import Any
 
 from .fixture_json import ParseError
 
-PARSER_VERSION = "bafin-detail-v1"
+PARSER_VERSION = "bafin-detail-v2"
 
 
 def _text(fragment: str) -> str:
@@ -90,6 +90,12 @@ def parse(data: bytes, metadata: dict[str, Any]) -> dict[str, Any]:
 
     # This table contains a nested table in its footer, so a non-greedy closing-tag match would truncate it.
     transaktion = _table_tail(page, "transaktion")
+
+    def footer_value(label: str) -> str | None:
+        match = re.search(rf"<td[^>]*>\s*{label}:?\s*</td>\s*<td[^>]*>(.*?)</td>", transaktion,
+                          re.DOTALL | re.IGNORECASE)
+        return _text(match.group(1)) if match else None
+
     tbody = re.search(r"<tbody>(.*?)</tbody>", transaktion, re.DOTALL | re.IGNORECASE)
     if not tbody:
         raise ParseError("BaFin price/volume rows missing")
@@ -99,6 +105,8 @@ def parse(data: bytes, metadata: dict[str, Any]) -> dict[str, Any]:
         cells = [_text(cell) for cell in re.findall(r"<td[^>]*>(.*?)</td>", row_html, re.DOTALL | re.IGNORECASE)]
         if len(cells) != 2:
             raise ParseError("BaFin price/volume row schema changed")
+        if not cells[0] and not cells[1]:
+            continue
         price, price_currency = _money(cells[0])
         volume, volume_currency = _money(cells[1])
         if not price or not volume or price_currency != volume_currency:
@@ -112,6 +120,23 @@ def parse(data: bytes, metadata: dict[str, Any]) -> dict[str, Any]:
             "consideration_derivation": "reported_monetary_volume",
         })
 
+    aggregate_only = not rows
+    if aggregate_only:
+        aggregate_price = footer_value("Preis") or ""
+        aggregate_volume = footer_value("Aggregiertes Volumen") or ""
+        price, price_currency = _money(aggregate_price)
+        volume, volume_currency = _money(aggregate_volume)
+        if not price or not volume or price_currency != volume_currency:
+            raise ParseError("BaFin aggregate-only price/volume currency or number is invalid")
+        row_currencies.add(price_currency)
+        rows.append({
+            "row_locator": "aggregate-price-volume", "representation": "aggregate",
+            "price_raw": aggregate_price, "price_amount_reported": price, "price_currency_normalized": price_currency,
+            "quote_unit_scale": "1", "quantity_raw": None, "quantity": None, "quantity_unit": None,
+            "consideration_reported": volume, "consideration_currency": volume_currency,
+            "consideration_derivation": "reported_monetary_volume",
+        })
+
     trade_date = _date(metadata.get("trade_date", ""))
     date_match = re.search(r"e\)\s*Datum des Geschäfts\s*</th>\s*</tr>\s*<tr[^>]*>\s*<td[^>]*>(.*?)</td>", transaktion,
                            re.DOTALL | re.IGNORECASE)
@@ -119,11 +144,6 @@ def parse(data: bytes, metadata: dict[str, Any]) -> dict[str, Any]:
     if trade_date and detail_date and trade_date != detail_date:
         raise ParseError("BaFin search/detail trade dates disagree")
     trade_date = detail_date or trade_date
-    def footer_value(label: str) -> str | None:
-        match = re.search(rf"<td[^>]*>\s*{label}:?\s*</td>\s*<td[^>]*>(.*?)</td>", transaktion,
-                          re.DOTALL | re.IGNORECASE)
-        return _text(match.group(1)) if match else None
-
     mic = footer_value("MIC")
     venue = footer_value("Name") or metadata.get("venue") or None
 
@@ -135,7 +155,11 @@ def parse(data: bytes, metadata: dict[str, Any]) -> dict[str, Any]:
         action, exposure = "disposal", "decrease"
     elif nature_lower == "schenkung":
         action, exposure = "gift", "unknown"
-    elif nature_lower == "sonstiges" and explanation_lower.startswith("verkauf"):
+    elif nature_lower == "sonstiges" and "schenkung" in explanation_lower:
+        action, exposure = "gift", "unknown"
+    elif nature_lower == "sonstiges" and re.match(r"(?:kauf|erwerb)\b", explanation_lower):
+        action, exposure = "acquisition", "increase"
+    elif nature_lower == "sonstiges" and re.match(r"(?:verkauf\b|einräumung\s*\(verkauf\))", explanation_lower):
         action, exposure = "disposal", "decrease"
     else:
         action, exposure = "other", "unknown"
@@ -160,7 +184,7 @@ def parse(data: bytes, metadata: dict[str, Any]) -> dict[str, Any]:
         "nature_raw": f"{nature}: {explanation}" if explanation else nature, "action": action, "mechanism": "open_market" if nature_lower in {"kauf", "verkauf"} else "unknown",
         "consideration": "cash_paid_received", "investment_discretion": "unknown", "exposure_effect": exposure,
         "trade_date": trade_date, "trade_date_precision": "day" if trade_date else "unknown", "venue_raw": venue,
-        "venue_mic": mic, "aggregation_reconciliation": "reported_monetary_volume_without_quantity",
+        "venue_mic": mic, "aggregation_reconciliation": "aggregate_only_monetary_volume_without_quantity" if aggregate_only else "reported_monetary_volume_without_quantity",
         "eligible_own_money_signal": eligible,
         "signal_exclusion_reason": None if eligible else "instrument_or_transaction_outside_default_purchase_signal",
         "rows": rows,

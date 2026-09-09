@@ -10,9 +10,13 @@ def create_audit_sample(connection, source_id: str, size: int, output: Path) -> 
         raise ValueError("audit sample size must be positive")
     rows = connection.execute(
         "SELECT DISTINCT e.id AS event_id,sr.native_record_id,sr.canonical_url,ro.sha256 AS raw_sha256,"
-        "COALESCE(fv.issuer_name_raw,iss.legal_name) AS issuer_name,p.canonical_name AS party_name,tg.action,tg.nature_raw,tg.trade_date,"
+        "COALESCE(fv.issuer_name_raw,iss.legal_name) AS issuer_name,p.canonical_name AS party_name,p.party_type,p.identity_status,"
+        "(SELECT ir.raw_title FROM issuer_roles ir WHERE ir.party_id=tg.party_id AND ir.issuer_id=f.issuer_id AND ir.evidence_url=sr.canonical_url ORDER BY ir.id DESC LIMIT 1) AS party_role,"
+        "(SELECT ir.pdmr_or_pca FROM issuer_roles ir WHERE ir.party_id=tg.party_id AND ir.issuer_id=f.issuer_id AND ir.evidence_url=sr.canonical_url ORDER BY ir.id DESC LIMIT 1) AS pdmr_or_pca,"
+        "tg.action,tg.nature_raw,tg.trade_date,"
         "tg.venue_raw,COALESCE(tg.instrument_name_raw,i.name_raw) AS instrument_name,ii.value AS isin,tg.underlying_isin_raw,rr.representation,rr.price_raw,"
-        "rr.price_amount_decimal,rr.price_currency,rr.quantity_raw,rr.quantity_decimal,rr.quantity_unit "
+        "rr.price_amount_decimal,rr.price_currency,rr.quantity_raw,rr.quantity_decimal,rr.quantity_unit,"
+        "rr.consideration_reported_decimal,rr.consideration_derived_decimal,rr.consideration_currency,rr.id AS row_id "
         "FROM economic_events e JOIN event_versions ev ON ev.id=e.current_version_id "
         "JOIN filing_versions fv ON fv.id=ev.filing_version_id JOIN filings f ON f.id=fv.filing_id "
         "JOIN filing_publications fp ON fp.filing_version_id=fv.id AND fp.publication_rank=1 JOIN source_records sr ON sr.id=fp.source_record_id "
@@ -29,18 +33,21 @@ def create_audit_sample(connection, source_id: str, size: int, output: Path) -> 
         item = dict(row)
         event = events.setdefault(item["event_id"], {key: item[key] for key in (
             "event_id", "native_record_id", "canonical_url", "raw_sha256", "issuer_name", "party_name",
+            "party_type", "identity_status", "party_role", "pdmr_or_pca",
             "action", "nature_raw", "trade_date", "venue_raw", "instrument_name", "isin", "underlying_isin_raw",
         )})
         values = " | ".join(str(item[key] or "") for key in (
             "representation", "price_raw", "price_amount_decimal", "price_currency", "quantity_raw",
-            "quantity_decimal", "quantity_unit",
+            "quantity_decimal", "quantity_unit", "consideration_reported_decimal",
+            "consideration_derived_decimal", "consideration_currency",
         ))
         event["selected_rows"] = f"{event.get('selected_rows', '')} || {values}".strip(" |")
     selected = sorted(events.values(), key=lambda item: hashlib.sha256(f"{source_id}:{item['event_id']}".encode()).hexdigest())[:size]
     output.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
         "source_id", "event_id", "native_record_id", "canonical_url", "raw_sha256", "issuer_name",
-        "party_name", "action", "nature_raw", "trade_date", "venue_raw", "instrument_name", "isin", "underlying_isin_raw",
+        "party_name", "party_type", "identity_status", "party_role", "pdmr_or_pca", "action", "nature_raw",
+        "trade_date", "venue_raw", "instrument_name", "isin", "underlying_isin_raw",
         "selected_rows", "decision", "notes",
     ]
     with output.open("w", newline="", encoding="utf-8-sig") as handle:

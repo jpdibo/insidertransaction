@@ -9,7 +9,7 @@
 | Backup/restore/raw verification | passed | `test_backup_restore_and_resume` |
 | Interface/API/CSV | passed locally | Add browser accessibility review and production auth proxy |
 | Real source transaction | passed for active slice | Norway, Sweden, Germany, Switzerland, France, Netherlands and Denmark populate canonical data |
-| 50 audited observations per major source | partial | France, Sweden, Netherlands and Norway independently pass 50/50 after evidence-driven corrections; remaining major sources are pending |
+| 50 audited observations per major source | partial | France, Sweden, Netherlands, Norway, Switzerland and BaFin independently pass 50/50 after evidence-driven corrections; remaining major sources are pending |
 | 17 verified live adapters | blocked | 7 jurisdiction routes implemented; 10 remain |
 | Commercial rights | not applicable | User confirmed private/non-commercial use |
 | Persistent scheduler | passed | `InsiderTrackerDaily` installed, automatic firing observed, and manual launch completed all sources; controlled result 2 is solely a retained Norway evidence quarantine |
