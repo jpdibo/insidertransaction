@@ -17,7 +17,7 @@ from insider_tracker.config import config_hash, load_config
 from insider_tracker.db import connect, migrate
 from insider_tracker.locking import LockBusy, ProcessLock
 from insider_tracker.numbers import canonical_decimal, multiply, numeric_sort, parse_localized_decimal
-from insider_tracker.pipeline import reconcile_cross_source_duplicates, recover_abandoned_runs, run_daily, seed_registry
+from insider_tracker.pipeline import _sync_issuer_role, reconcile_cross_source_duplicates, recover_abandoned_runs, run_daily, seed_registry
 from insider_tracker.web import application
 from parsers.newsweb_json import parse as parse_newsweb
 
@@ -55,6 +55,26 @@ class SystemTest(unittest.TestCase):
         self.assertEqual(create_audit_sample(self.connection, "offline_fixture_corpus", 3, second), 3)
         self.assertEqual(first.read_bytes(), second.read_bytes())
         self.assertIn("decision,notes", first.read_text(encoding="utf-8-sig").splitlines()[0])
+
+    def test_role_replay_removes_contradictory_classification(self):
+        self.ingest()
+        role = self.connection.execute(
+            "SELECT party_id,issuer_id,raw_title,normalized_role,pdmr_or_pca FROM issuer_roles ORDER BY id LIMIT 1"
+        ).fetchone()
+        contradictory = "pca" if role["pdmr_or_pca"] != "pca" else "pdmr"
+        self.connection.execute(
+            "INSERT INTO issuer_roles(party_id,issuer_id,raw_title,normalized_role,pdmr_or_pca,evidence_url) VALUES(?,?,?,?,?,?)",
+            (role["party_id"], role["issuer_id"], role["raw_title"], role["normalized_role"], contradictory, "https://stale.test"),
+        )
+        _sync_issuer_role(self.connection, role["party_id"], role["issuer_id"], {
+            "status_raw": role["raw_title"], "role_normalized": role["normalized_role"],
+            "pdmr_or_pca": role["pdmr_or_pca"],
+        }, "https://current.test")
+        classifications = self.connection.execute(
+            "SELECT DISTINCT pdmr_or_pca FROM issuer_roles WHERE party_id=? AND issuer_id=? AND raw_title IS ?",
+            (role["party_id"], role["issuer_id"], role["raw_title"]),
+        ).fetchall()
+        self.assertEqual([item[0] for item in classifications], [role["pdmr_or_pca"]])
 
     def test_exact_decimals_and_locales(self):
         values = ["2", "10", "0.123456789123456789"]

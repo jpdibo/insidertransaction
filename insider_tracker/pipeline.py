@@ -235,6 +235,21 @@ def _party(connection: sqlite3.Connection, source_id: str, filing_ref: str, part
     return party_id
 
 
+def _sync_issuer_role(connection: sqlite3.Connection, party_id: str, issuer_id: str, party: dict[str, Any], evidence_url: str) -> None:
+    role_raw = party.get("status_raw")
+    role_normalized = party.get("role_normalized")
+    role_classification = party.get("pdmr_or_pca", "unknown")
+    connection.execute(
+        "DELETE FROM issuer_roles WHERE party_id=? AND issuer_id=? AND raw_title IS ? "
+        "AND (normalized_role IS NOT ? OR pdmr_or_pca<>?)",
+        (party_id, issuer_id, role_raw, role_normalized, role_classification),
+    )
+    connection.execute(
+        "INSERT OR IGNORE INTO issuer_roles(party_id,issuer_id,raw_title,normalized_role,pdmr_or_pca,evidence_url) VALUES(?,?,?,?,?,?)",
+        (party_id, issuer_id, role_raw, role_normalized, role_classification, evidence_url),
+    )
+
+
 def _accept_payload(
     connection: sqlite3.Connection, source: dict[str, Any], record_id: int, document_id: int,
     payload: dict[str, Any], manifest_hash: str, parser_version: str,
@@ -318,6 +333,8 @@ def _accept_payload(
                     "INSERT OR IGNORE INTO filing_publications(filing_version_id,source_record_id,publication_rank,confidence) VALUES(?,?,?,'native')",
                     (existing["id"], record_id, publication_rank),
                 )
+                party_id = _party(connection, source["source_id"], filing_id, filing["transacting_party"])
+                _sync_issuer_role(connection, party_id, issuer_id, filing["transacting_party"], payload["source"]["url"])
                 continue
             current_filing = connection.execute(
                 "SELECT fv.notification_status FROM filings f LEFT JOIN filing_versions fv ON fv.id=f.current_version_id WHERE f.id=?",
@@ -355,12 +372,7 @@ def _accept_payload(
                     "name_raw": filing["transacting_party"]["related_pdmr_name_raw"], "party_type": "natural_person",
                     "identity_resolution_status": "unresolved",
                 })
-            connection.execute(
-                "INSERT OR IGNORE INTO issuer_roles(party_id,issuer_id,raw_title,normalized_role,pdmr_or_pca,evidence_url) VALUES(?,?,?,?,?,?)",
-                (party_id, issuer_id, filing["transacting_party"].get("status_raw"),
-                 filing["transacting_party"].get("role_normalized"), filing["transacting_party"].get("pdmr_or_pca", "unknown"),
-                 payload["source"]["url"]),
-            )
+            _sync_issuer_role(connection, party_id, issuer_id, filing["transacting_party"], payload["source"]["url"])
             if related_party_id:
                 connection.execute(
                     "INSERT OR IGNORE INTO party_relationships(from_party_id,to_party_id,issuer_id,relationship_type,evidence_url,review_state) VALUES(?,?,?,?,?,'reported')",

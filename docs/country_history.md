@@ -38,8 +38,11 @@ This ledger records what was done for each of the 17 in-scope jurisdictions. Dat
 - 2026-09-09: Enabled one-day BaFin backfill and accepted 13 additional events from 25-27 August, reaching 33. The 28 August window then timed out twice without checkpoint advancement.
 - 2026-09-09: Recovered the endpoint, expanded BaFin backward through 18-20 August, and reached 53 accepted events.
 - 2026-09-09: Retained an aggregate-only monetary disclosure without inferring quantity. Independent review initially passed 39/50; explicit `Sonstiges` explanations and duplicate audit rows were corrected, saved evidence was replayed, and the final audit passed 50/50 across 81 selected rows.
+- 2026-09-09: Expanded the archive through 23 December 2016, reaching 93 publications with zero quarantines.
+- 2026-09-09: Archive review initially passed 19/50. Corrected filing-language instrument names, whole-word option actions, legal-entity/PCA roles, explicit gift direction, underlying ISINs, MICs and obsolete contradictory role rows; final independent review passed 50/50.
+- 2026-09-09: Identified 11 defensible bilingual pairs and one standalone correction candidate. They remain separate and unlinked because the archive publishes no machine-readable parent or equivalent-publication identifiers.
 - Current state: BaFin `adapter_tested`; archive `sample_verified`. Ambiguous legacy aggregate labels remain raw-only and excluded from analytics.
-- Next gate: broader archive dates and reviewed bilingual-publication event links.
+- Next gate: continue bounded archive dates and link publications only if authoritative identifiers become available.
 
 ## Denmark (DK)
 

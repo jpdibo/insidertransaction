@@ -7,7 +7,7 @@ from datetime import date, datetime
 from .fixture_json import ParseError
 
 
-PARSER_VERSION = "unternehmensregister-html-v4"
+PARSER_VERSION = "unternehmensregister-html-v6"
 
 
 def _visible(data: bytes) -> str:
@@ -77,19 +77,38 @@ def parse(data: bytes, metadata: dict) -> dict:
     if ambiguous_aggregate:
         quantity = None
         price = None
-    action = "disposal" if re.search(r"Verkauf|Veräußerung|Sale|Disposal", nature, re.IGNORECASE) else "acquisition" if re.search(r"(?<!Ver)Kauf|Erwerb|Purchase|Acquisition", nature, re.IGNORECASE) else "grant" if re.search(r"Zuteilung|Grant", nature, re.IGNORECASE) else "other"
+    if re.search(r"Schenkung|Gift", nature, re.IGNORECASE):
+        action = "gift"
+    elif re.search(r"Gewährung|Zuteilung|Begebung|Grant", nature, re.IGNORECASE):
+        action = "grant"
+    elif re.search(r"\b(?:Verkauf|Veräußerung|Sale|Disposal)\b", nature, re.IGNORECASE):
+        action = "disposal"
+    elif re.search(r"\b(?:Kauf|Erwerb|Purchase|Acquisition)\b", nature, re.IGNORECASE):
+        action = "acquisition"
+    else:
+        action = "other"
+    entity_pattern = r"\b(?:AG|Aktiengesellschaft|GmbH|SE|KG|OHG|UG|Ltd|Limited|PLC|S\.A\.?|B\.V\.?|PTE\.?)\b"
+    party_type = "legal_entity" if re.search(entity_pattern, party, re.IGNORECASE) else "natural_person"
+    is_pca = bool(re.search(r"enger?\s+Beziehung|closely associated", role, re.IGNORECASE))
+    underlying_match = re.search(r"\bunderlying\b.*?\bISIN\s*:?[ ]*([A-Z]{2}[A-Z0-9]{10})", text, re.IGNORECASE)
+    underlying_isin = underlying_match.group(1) if underlying_match else None
+    mic_match = re.search(r"\bMIC\s*:\s*([A-Z0-9]{4})\b", venue, re.IGNORECASE)
+    venue_mic = mic_match.group(1).upper() if mic_match else None
     reference = metadata["native_record_id"]
+    exposure = "increase" if action == "acquisition" or (action == "gift" and re.search(r"\b(?:erhalten|Zugang)\b", nature, re.IGNORECASE)) else "decrease" if action == "disposal" or (action == "gift" and re.search(r"Schenkung.*\ban\b", nature, re.IGNORECASE)) else "unknown"
     return {"schema_version": "1.0", "source": {"native_record_id": reference, "url": metadata["url"], "published_date": metadata.get("published_date")},
             "filings": [{"source_locator": reference, "notification_status": "correction" if re.search(r"Berichtigung|Amendment", status, re.IGNORECASE) else "initial",
                          "issuer": {"name_raw": issuer, "lei_raw": lei},
-                         "transacting_party": {"name_raw": party, "party_type": "natural_person", "status_raw": role,
-                                               "pdmr_or_pca": "pca" if re.search(r"enge Beziehung|closely associated", role, re.IGNORECASE) else "pdmr", "identity_resolution_status": "unresolved"},
+                          "transacting_party": {"name_raw": party, "party_type": party_type, "status_raw": role,
+                                                "pdmr_or_pca": "pca" if is_pca else "pdmr", "identity_resolution_status": "unresolved"},
                          "quality_issues": ["archive_aggregate_labels_semantically_ambiguous"] if ambiguous_aggregate else [],
                          "transaction_groups": [{"group_locator": "transaction-1", "event_key": "transaction-1",
-                                                 "instrument": {"name_raw": instrument, "isin_raw": isin, "instrument_type": "ordinary_share" if re.search(r"Aktie|Share", instrument, re.IGNORECASE) else "other"},
+                                                 "instrument": {"name_raw": instrument, "isin_raw": isin, "underlying_isin_raw": underlying_isin,
+                                                                "instrument_type": "ordinary_share" if re.search(r"Aktie|Share", instrument, re.IGNORECASE) else "other"},
                                                  "nature_raw": nature, "action": action, "mechanism": "unknown", "consideration": "unknown",
-                                                 "investment_discretion": "unknown", "exposure_effect": "increase" if action == "acquisition" else "decrease" if action == "disposal" else "unknown",
+                                                 "investment_discretion": "unknown", "exposure_effect": exposure,
                                                  "trade_date": trade_date, "trade_date_precision": "day", "venue_raw": venue,
+                                                 "venue_mic": venue_mic,
                                                  "aggregation_reconciliation": "aggregate_only", "eligible_own_money_signal": False,
                                                  "signal_exclusion_reason": "archive_aggregate_only",
                                                  "rows": [{"row_locator": "aggregate-row-1", "representation": "aggregate", "price_raw": aggregate_price_raw,

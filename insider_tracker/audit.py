@@ -11,8 +11,8 @@ def create_audit_sample(connection, source_id: str, size: int, output: Path) -> 
     rows = connection.execute(
         "SELECT DISTINCT e.id AS event_id,sr.native_record_id,sr.canonical_url,ro.sha256 AS raw_sha256,"
         "COALESCE(fv.issuer_name_raw,iss.legal_name) AS issuer_name,p.canonical_name AS party_name,p.party_type,p.identity_status,"
-        "(SELECT ir.raw_title FROM issuer_roles ir WHERE ir.party_id=tg.party_id AND ir.issuer_id=f.issuer_id AND ir.evidence_url=sr.canonical_url ORDER BY ir.id DESC LIMIT 1) AS party_role,"
-        "(SELECT ir.pdmr_or_pca FROM issuer_roles ir WHERE ir.party_id=tg.party_id AND ir.issuer_id=f.issuer_id AND ir.evidence_url=sr.canonical_url ORDER BY ir.id DESC LIMIT 1) AS pdmr_or_pca,"
+        "(SELECT ir.raw_title FROM issuer_roles ir WHERE ir.party_id=tg.party_id AND ir.issuer_id=f.issuer_id ORDER BY ir.id DESC LIMIT 1) AS party_role,"
+        "(SELECT ir.pdmr_or_pca FROM issuer_roles ir WHERE ir.party_id=tg.party_id AND ir.issuer_id=f.issuer_id ORDER BY ir.id DESC LIMIT 1) AS pdmr_or_pca,"
         "tg.action,tg.nature_raw,tg.trade_date,"
         "tg.venue_raw,COALESCE(tg.instrument_name_raw,i.name_raw) AS instrument_name,ii.value AS isin,tg.underlying_isin_raw,rr.representation,rr.price_raw,"
         "rr.price_amount_decimal,rr.price_currency,rr.quantity_raw,rr.quantity_decimal,rr.quantity_unit,"

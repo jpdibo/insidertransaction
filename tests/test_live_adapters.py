@@ -142,7 +142,20 @@ class AdapterContractTest(unittest.TestCase):
         group = filing["transaction_groups"][0]
         self.assertEqual(filing["transacting_party"]["name_raw"], "Davin Lee")
         self.assertEqual((group["action"], group["trade_date"], group["venue_raw"]), ("disposal", "2016-12-16", "Name: XETRA MIC: XTRA"))
+        self.assertEqual(group["venue_mic"], "XTRA")
         self.assertIsNone(group["rows"][0]["quantity"])
+
+    def test_unternehmensregister_option_words_do_not_invert_action(self):
+        page = b'''<html><body>Details of the person discharging managerial responsibilities Name: Jane Doe Reason for the notification Position/status: Member of the managing body b) Initial notification/ Amendment: Initial notification Details of issuer Name: Example Plc Address: London LEI: 529900QA2LORU6646N15 Details of the transaction a) Description Type of instrument: Derivative Identification code: put option; underlying: Example share, ISIN DE0006047004 b) Nature of the transaction: Acquisition of put options c) Price d) Aggregated information Aggregated volume: not quantifiable Price: not quantifiable e) Date of the transaction: 21.12.2016 f) Place of the transaction: OTC Further information</body></html>'''
+        group = parse_ureg(page, {"native_record_id": "sample-option", "url": "https://example.test"})["filings"][0]["transaction_groups"][0]
+        self.assertEqual(group["action"], "acquisition")
+        self.assertEqual(group["instrument"]["underlying_isin_raw"], "DE0006047004")
+
+    def test_unternehmensregister_german_pca_entity_and_gift(self):
+        page = b'''<html><body>Angaben zu den Personen Name: Petrovka GmbH Grund der Meldung Position/Status: Person in enger Beziehung zu: Florian Fenner b) Erstmeldung/Berichtigung: Erstmeldung Angaben zum Emittenten Name: Beispiel AG Adresse: Berlin LEI: 529900QA2LORU6646N15 Angaben zum Gesch\xc3\xa4ft a) Art des Instruments: Aktie Kennung: DE0001234567 b) Art des Gesch\xc3\xa4fts: 60 Aktien im Wege einer Schenkung erhalten c) Preis d) Aggregierte Informationen Aggregiertes Volumen: nicht bezifferbar Preis: nicht bezifferbar e) Datum des Gesch\xc3\xa4fts: 16.12.2016 f) Ort des Gesch\xc3\xa4fts: OTC Weitere Angaben</body></html>'''
+        filing = parse_ureg(page, {"native_record_id": "sample-pca", "url": "https://example.test"})["filings"][0]
+        self.assertEqual((filing["transacting_party"]["party_type"], filing["transacting_party"]["pdmr_or_pca"]), ("legal_entity", "pca"))
+        self.assertEqual((filing["transaction_groups"][0]["action"], filing["transaction_groups"][0]["exposure_effect"]), ("gift", "increase"))
 
     def test_unternehmensregister_verkauf_is_disposal(self):
         page = b'''<html><body>
