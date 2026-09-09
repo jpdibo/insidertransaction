@@ -8,6 +8,7 @@ import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from unittest.mock import patch
 from wsgiref.util import setup_testing_defaults
 
 from insider_tracker.backup import create_backup, restore_backup
@@ -101,6 +102,8 @@ class SystemTest(unittest.TestCase):
         self.assertEqual([(row[0], row[1], row[2]) for row in rows], [("individual", "1000", 1), ("individual", "2000", 1), ("aggregate", "3000", 0)])
         selected_total = sum((__import__("decimal").Decimal(row[1]) for row in rows if row[2]), __import__("decimal").Decimal(0))
         self.assertEqual(selected_total, __import__("decimal").Decimal("3000"))
+        self.assertEqual(self.connection.execute("SELECT COUNT(*) FROM filing_versions WHERE issuer_name_raw IS NULL").fetchone()[0], 0)
+        self.assertEqual(self.connection.execute("SELECT COUNT(*) FROM transaction_groups WHERE instrument_name_raw IS NULL").fetchone()[0], 0)
 
     def test_backfill_uses_independent_bounded_checkpoint(self):
         self.config["sources"][0]["backfill_start_date"] = "2026-08-01"
@@ -176,6 +179,14 @@ class SystemTest(unittest.TestCase):
         path.write_text("pid=2147483647\n", encoding="ascii")
         with ProcessLock(path):
             self.assertTrue(path.exists())
+        self.assertFalse(path.exists())
+
+    def test_windows_vanished_lock_owner_system_error_is_reclaimed(self):
+        path = self.temp / "vanished-lock"
+        path.write_text("pid=2147483646\n", encoding="ascii")
+        with patch("insider_tracker.locking.os.kill", side_effect=SystemError("process exited")):
+            with ProcessLock(path):
+                self.assertTrue(path.exists())
         self.assertFalse(path.exists())
 
     def test_lock_exit_does_not_remove_replacement_owner(self):

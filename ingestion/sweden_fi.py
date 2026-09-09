@@ -21,10 +21,14 @@ def _search_rows(body: bytes) -> tuple[int, list[dict]]:
     except UnicodeDecodeError as exc:
         raise TransportError("FI search response is not UTF-8") from exc
     visible = html.unescape(page)
-    if "Transaktionsdatum" not in visible or "Rapportsammanst" not in visible or "badge badge-info" not in page:
+    if "Transaktionsdatum" not in visible or "badge badge-info" not in page:
         raise TransportError("FI search response markers missing; possible challenge or layout change")
     count_match = re.search(r'class="badge badge-info">\s*([\d ]+)\s*</span>', page)
-    total = int(count_match.group(1).replace(" ", "")) if count_match else 0
+    if not count_match:
+        raise TransportError("FI search result count missing")
+    total = int(count_match.group(1).replace(" ", ""))
+    if total and "Rapportsammanst" not in visible:
+        raise TransportError("FI result links missing; possible challenge or layout change")
     body_match = re.search(r"<tbody>(.*?)</tbody>", page, re.DOTALL | re.IGNORECASE)
     rows = []
     if body_match:
@@ -49,15 +53,17 @@ def _search_rows(body: bytes) -> tuple[int, list[dict]]:
 
 
 class SwedenFiAdapter:
-    version = "sweden-fi-live-v1"
+    version = "sweden-fi-live-v2"
     host = "marknadssok.fi.se"
     root = f"https://{host}"
     search_path = "/Publiceringsklient/sv-SE/Search/Search"
     page_path = "/Publiceringsklient/sv-SE/Search/Search/Insyn"
 
-    def __init__(self, *, timeout: float = 20, retries: int = 2, request_delay: float = 0.15):
+    def __init__(self, *, timeout: float = 20, retries: int = 2, request_delay: float = 0.15,
+                 search_request_delay: float | None = None):
         self.client = HttpClient(timeout=timeout, retries=retries)
         self.request_delay = request_delay
+        self.search_request_delay = request_delay if search_request_delay is None else search_request_delay
 
     def _params(self, interval_from: str, interval_to: str, page: int, paging: bool) -> dict[str, str]:
         values = {"SearchFunctionType": "Insyn", "Utgivare": "", "PersonILedandeStällningNamn": "",
@@ -79,15 +85,28 @@ class SwedenFiAdapter:
         return {"status": "ok", "checked_date": today, "result_rows": str(count)}
 
     def discover(self, interval_from: str, interval_to: str, cursor: str | None) -> list[DiscoveredRecord]:
-        total, rows = self._page(interval_from, interval_to, 1)
-        for page in range(2, math.ceil(total / 10) + 1):
-            time.sleep(self.request_delay)
-            page_total, page_rows = self._page(interval_from, interval_to, page)
-            if page_total != total:
-                raise TransportError("FI result count changed during pagination")
-            rows.extend(page_rows)
-        if len(rows) != total:
-            raise TransportError(f"FI pagination incomplete: expected {total}, received {len(rows)}")
+        start = date.fromisoformat(interval_from)
+        end = date.fromisoformat(interval_to)
+        rows = []
+        current = start
+        search_requests = 0
+        while current <= end:
+            day = current.isoformat()
+            if search_requests:
+                time.sleep(self.search_request_delay)
+            total, day_rows = self._page(day, day, 1)
+            search_requests += 1
+            for page in range(2, math.ceil(total / 10) + 1):
+                time.sleep(self.search_request_delay)
+                page_total, page_rows = self._page(day, day, page)
+                search_requests += 1
+                if page_total != total:
+                    raise TransportError("FI result count changed during pagination")
+                day_rows.extend(page_rows)
+            if len(day_rows) != total:
+                raise TransportError(f"FI pagination incomplete for {day}: expected {total}, received {len(day_rows)}")
+            rows.extend(day_rows)
+            current += timedelta(days=1)
         by_report: dict[str, dict] = {}
         for row in rows:
             entry = by_report.setdefault(row["report_version"], {"published_date": row["published_date"], "search_rows": []})

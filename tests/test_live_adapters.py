@@ -6,7 +6,7 @@ from pathlib import Path
 
 from ingestion.bafin import _party_detail_links, _search_rows as bafin_search_rows
 from ingestion.newsweb import NewsWebAdapter
-from ingestion.sweden_fi import _search_rows
+from ingestion.sweden_fi import SwedenFiAdapter, _search_rows
 from parsers.newsweb_json import _afm_form, _body_embedded_form, _compact_english_form, _english_krt_form, _krt_form, _schouw_forms, _thor_forms
 from parsers.bafin_html import parse as parse_bafin
 from parsers.sweden_fi_html import parse as parse_sweden
@@ -20,6 +20,24 @@ from parsers.denmark_oam_json import _fallback_danish as parse_danish_fallback, 
 
 
 class AdapterContractTest(unittest.TestCase):
+    def test_sweden_zero_result_page_does_not_require_detail_links(self):
+        page = '''<html><label>Transaktionsdatum</label><span class="badge badge-info">0</span></html>'''
+        self.assertEqual(_search_rows(page.encode()), (0, []))
+
+    def test_sweden_discovery_partitions_each_publication_date(self):
+        adapter = SwedenFiAdapter(request_delay=0)
+        calls = []
+
+        def page(interval_from, interval_to, page):
+            calls.append((interval_from, interval_to, page))
+            report = f"A{interval_from[-2:]}-1"
+            return 1, [{"report_version": report, "href": f"/Index/{report}", "published_date": interval_from}]
+
+        adapter._page = page
+        records = adapter.discover("2026-09-07", "2026-09-09", None)
+        self.assertEqual(calls, [("2026-09-07", "2026-09-07", 1), ("2026-09-08", "2026-09-08", 1), ("2026-09-09", "2026-09-09", 1)])
+        self.assertEqual([record.native_record_id for record in records], ["A07-1", "A08-1", "A09-1"])
+
     def test_denmark_oam_english_pca_form(self):
         text = '''Details of the person discharging managerial responsibilities/person closely associated
         a) Name A/S Motortramp 2. Reason for the notification a) Position /status A/S Motortramp is closely related; CEO and board member, Johanne Riegels, is also a board member
@@ -129,6 +147,12 @@ class AdapterContractTest(unittest.TestCase):
         self.assertEqual((filing["issuer"]["lei_raw"], filing["transacting_party"]["pdmr_or_pca"]), ("9695000H29HRRE478062", "pca"))
         self.assertEqual((group["trade_date"], group["venue_mic"], group["instrument"]["isin_raw"]), ("2026-09-04", "XPAR", "FR0010341032"))
         self.assertEqual([row["representation"] for row in group["rows"]], ["individual", "aggregate"])
+
+    def test_amf_comments_can_identify_aggregate_and_effective_acquisition(self):
+        text = '''2026DD1137001 Individual notification NAME / POSITION - STATUS OF THE PERSON DISCHARGING MANAGERIAL RESPONSABILITIES / PERSON CLOSELY ASSOCIATED: EXAMPLE SAS legal person closely associated with Jane Doe INITIAL NOTIFICATION / AMENDMENT: Initial notification DETAILS OF THE ISSUER NAME : EXAMPLE SA LEI : 9695000H29HRRE478062 DETAIL OF THE TRANSACTION DATE OF THE TRANSACTION : 02 September 2026 PLACE OF THE TRANSACTION : Outside a trading venue NATURE OF THE TRANSACTION : Dénouement d’un contrat financier dérivé DESCRIPTION OF THE FINANCIAL INSTRUMENT, TYPE OF INSTRUMENT : Share IDENTIFICATION CODE : FR0010341032 DETAILED OPERATION INFORMATION PRICE : 1.7500 Euro VOLUME : 1 962.0000 AGGREGATED INFORMATION PRICE : 1.7500 Euro AGGREGATED VOLUME : 1 962.0000 DATE OF RECEIPT OF THE NOTIFICATION : 07 September 2026 COMMENTS : Les informations correspondent à un prix et à un volume agrégé. Ces dénouements correspondent à des acquisitions effectives d’actions.'''
+        group = parse_amf_text(text)["filings"][0]["transaction_groups"][0]
+        self.assertEqual(group["action"], "acquisition")
+        self.assertEqual([row["representation"] for row in group["rows"]], ["aggregate"])
 
     def test_six_detail_preserves_anonymity_and_reported_amounts(self):
         payload = parse_six(b'''{"status":"Ok","totalCount":1,"itemList":[{"correctorId":"","obligorRelatedPartyInd":"I","transactionSize":14.0,"transactionAmountPerSecurityCHF":144.0,"obligorFunctionCode":"1","transactionAmountCHF":2016.0,"swxListed":"T","notificationSubmitter":"Investis Holding SA","ISIN":"CH0325094297","transactionConditions":"","transactionDate":20260907,"correcteeId":"","notificationSubmitterId":"INVESH","notificationId":"T1Q9700063","buySellIndicator":"1","securityTypeCode":"7","securityDescription":""}]}''')

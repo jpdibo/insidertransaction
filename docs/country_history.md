@@ -69,6 +69,7 @@ This ledger records what was done for each of the 17 in-scope jurisdictions. Dat
 - 2026-09-08: Added detailed-fill retention, unselected aggregates, PCA handling and malformed-LEI quality policy.
 - 2026-09-08: Accepted 43 repeat-stable PDFs producing 61 current transaction events with zero quarantines.
 - 2026-09-09: Generated deterministic 50-event audit worksheet `data/reports/audit_fr_amf_bdif_50.csv` locally.
+- 2026-09-09: Independent PDF review initially found two discrepancies. Added comment-based aggregate/effective-acquisition handling, reparsed saved evidence, and passed the repeated audit 50/50.
 - Current state: `live_verified`.
 - Next gate: complete and record the independent 50-observation review and validate real correction linkage.
 
@@ -137,6 +138,9 @@ This ledger records what was done for each of the 17 in-scope jurisdictions. Dat
 - 2026-09-08: Reparsed 61 saved report versions into 73 current groups with matching official aggregates and zero parser quarantines.
 - 2026-09-09: Generated deterministic 50-event audit worksheet `data/reports/audit_se_fi_insyn_50.csv` locally.
 - 2026-09-09: Scheduled daily execution reached page 9 before FI closed the connection; the source failed explicitly without advancing silently.
+- 2026-09-09: Measured separate FI search and detail request windows, partitioned discovery by publication date, accepted the legitimate zero-result page shape, and configured eight-second search/four-second detail pacing.
+- 2026-09-09: Completed a live source run with 76 report versions, zero quarantines and 26 newly accepted groups; Sweden reached 113 current groups, of which 111 match official aggregates and two are detail-only.
+- 2026-09-09: Independent HTML review initially found three filing-specific name discrepancies. Migration 012 preserved issuer/instrument raw names per filing/group; saved-evidence replay and repeated review then passed 50/50.
 - Current state: `adapter_tested`; source throttling remains operationally significant.
 - Next gate: complete the 50-observation review and add resumable/reduced-pressure paging for daily retrieval.
 
@@ -148,3 +152,5 @@ This ledger records what was done for each of the 17 in-scope jurisdictions. Dat
 - 2026-09-08: Added migration 011 to persist discovery metadata needed for deterministic saved-byte replay.
 - 2026-09-09: Manually launched the installed task. It ran to completion through Task Scheduler and returned controlled partial-failure code 2 because of known Norway quarantines, one new recoverable Norway layout and Sweden throttling.
 - 2026-09-09: Added deterministic `audit-sample` CSV generation and produced 50-event France and Sweden review manifests locally.
+- 2026-09-09: Launched the installed Task Scheduler entry after FI hardening. Every live source completed; exit code 2 was solely the expected NewsWeb evidence quarantine, demonstrating controlled partial-failure reporting.
+- 2026-09-09: Added migration 012 for filing-version issuer names and transaction-group instrument names after independent audit exposed lossy shared-entity labels.

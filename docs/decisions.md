@@ -8,4 +8,4 @@
 - Detailed rows win analytical selection over matching aggregates; both remain stored.
 - Synthetic fixtures use an `out_of_scope` source and never count toward country coverage.
 - Observed browser requests are not called documented APIs.
-- The Windows scheduler is prepared but not installed on an unconfirmed persistent host.
+- The Windows scheduler is installed on the confirmed persistent pilot host; automatic and manual Task Scheduler launches are verified.

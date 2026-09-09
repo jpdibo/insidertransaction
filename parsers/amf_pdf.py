@@ -9,7 +9,7 @@ from pypdf import PdfReader
 from parsers.fixture_json import ParseError
 
 
-PARSER_VERSION = "amf-bdif-pdf-v3"
+PARSER_VERSION = "amf-bdif-pdf-v4"
 
 
 def _field(pattern: str, text: str, *, required: bool = True) -> str | None:
@@ -49,6 +49,7 @@ def _parse_text(text: str) -> dict:
     groups = []
     month_formats = ("%d %B %Y", "%d %b %Y")
     for ordinal, section in enumerate(sections, 1):
+        full_section = section
         section = section.split("DATE OF RECEIPT OF THE NOTIFICATION", 1)[0]
         date_raw = _field(r"DATE OF THE TRANSACTION\s*:\s*(.*?)\s+PLACE OF THE TRANSACTION", section)
         trade_date = None
@@ -64,7 +65,8 @@ def _parse_text(text: str) -> dict:
         nature = _field(r"NATURE OF THE TRANSACTION\s*:\s*(.*?)\s+DESCRIPTION OF THE FINANCIAL INSTRUMENT", section)
         instrument_name = _field(r"DESCRIPTION OF THE FINANCIAL INSTRUMENT[^:]*:\s*(.*?)\s+(?:IDENTIFICATION CODE|DETAILED OPERATION INFORMATION)", section)
         isin = _field(r"IDENTIFICATION CODE\s*:\s*([A-Z]{2}[A-Z0-9]{10})", section, required=False) or (header_isin_match.group(1) if header_isin_match else None)
-        action = "acquisition" if re.search(r"acquisition|purchase|subscription", nature, re.IGNORECASE) else "disposal" if re.search(r"sale|disposal|cession", nature, re.IGNORECASE) else "grant" if re.search(r"grant|allocation", nature, re.IGNORECASE) else "other"
+        effective_acquisition = re.search(r"acquisitions? effectives?|effective acquisitions?", full_section, re.IGNORECASE)
+        action = "acquisition" if re.search(r"acquisition|purchase|subscription", nature, re.IGNORECASE) or effective_acquisition else "disposal" if re.search(r"sale|disposal|cession", nature, re.IGNORECASE) else "grant" if re.search(r"grant|allocation", nature, re.IGNORECASE) else "other"
         instrument_type = "option" if "option" in instrument_name.lower() else "ordinary_share" if "share" in instrument_name.lower() or "action" in instrument_name.lower() else "other"
         detail = _field(r"DETAILED OPERATION INFORMATION\s+(.*?)\s+AGGREGATED INFORMATION", section)
         rows = []
@@ -79,6 +81,8 @@ def _parse_text(text: str) -> dict:
         if aggregate:
             price, currency_raw, quantity = aggregate.groups()
             currency = "EUR" if currency_raw.lower() in {"euro", "eur"} else currency_raw.upper()
+            if re.search(r"correspondent.*?prix.*?volume agr[ée]g", full_section, re.DOTALL | re.IGNORECASE):
+                rows = []
             rows.append({"row_locator": f"transaction-{ordinal}-aggregate", "representation": "aggregate",
                          "price_raw": f"{price.strip()} {currency_raw}", "price_amount_reported": _number(price),
                          "price_currency_normalized": currency, "quote_unit_scale": "1", "quantity_raw": quantity.strip(),

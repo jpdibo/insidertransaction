@@ -298,6 +298,16 @@ def _accept_payload(
                 "SELECT id FROM filing_versions WHERE filing_id=? AND content_hash=?", (filing_id, filing_hash)
             ).fetchone()
             if existing:
+                connection.execute(
+                    "UPDATE filing_versions SET issuer_name_raw=COALESCE(issuer_name_raw,?) WHERE id=?",
+                    (issuer["name_raw"], existing["id"]),
+                )
+                for group in filing["transaction_groups"]:
+                    connection.execute(
+                        "UPDATE transaction_groups SET instrument_name_raw=COALESCE(instrument_name_raw,?) "
+                        "WHERE filing_version_id=? AND group_locator=?",
+                        (group["instrument"]["name_raw"], existing["id"], group["group_locator"]),
+                    )
                 publication_rank = connection.execute(
                     "SELECT COALESCE(MAX(publication_rank),0)+1 FROM filing_publications WHERE filing_version_id=?",
                     (existing["id"],),
@@ -318,10 +328,10 @@ def _accept_payload(
                 "SELECT COALESCE(MAX(version_number),0)+1 AS n FROM filing_versions WHERE filing_id=?", (filing_id,)
             ).fetchone()["n"]
             cursor = connection.execute(
-                "INSERT INTO filing_versions(filing_id,version_number,notification_status,amends_reference,source_locator,issuer_received_at,accepted_at,content_hash) "
-                "VALUES(?,?,?,?,?,?,?,?)",
+                "INSERT INTO filing_versions(filing_id,version_number,notification_status,amends_reference,source_locator,issuer_received_at,accepted_at,content_hash,issuer_name_raw) "
+                "VALUES(?,?,?,?,?,?,?,?,?)",
                 (filing_id, version_number, filing["notification_status"], filing.get("amends_native_reference"),
-                 filing["source_locator"], filing.get("issuer_received_at"), now, filing_hash),
+                 filing["source_locator"], filing.get("issuer_received_at"), now, filing_hash, issuer["name_raw"]),
             )
             filing_version_id = cursor.lastrowid
             if promote_current:
@@ -377,10 +387,10 @@ def _accept_payload(
                         (instrument_id, isin),
                     )
                 cursor = connection.execute(
-                    "INSERT INTO transaction_groups(filing_version_id,group_locator,party_id,related_pdmr_party_id,instrument_id,nature_raw,action,mechanism,consideration_type,investment_discretion,exposure_effect,trade_date,trade_date_precision,venue_raw,venue_mic,reconciliation_status,eligible_own_money_signal,signal_exclusion_reason) "
-                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    (filing_version_id, group["group_locator"], party_id, related_party_id, instrument_id, group["nature_raw"],
-                     group["action"], group.get("mechanism", "unknown"), group.get("consideration", "unknown"),
+                    "INSERT INTO transaction_groups(filing_version_id,group_locator,party_id,related_pdmr_party_id,instrument_id,instrument_name_raw,nature_raw,action,mechanism,consideration_type,investment_discretion,exposure_effect,trade_date,trade_date_precision,venue_raw,venue_mic,reconciliation_status,eligible_own_money_signal,signal_exclusion_reason) "
+                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (filing_version_id, group["group_locator"], party_id, related_party_id, instrument_id, instrument["name_raw"], group["nature_raw"],
+                      group["action"], group.get("mechanism", "unknown"), group.get("consideration", "unknown"),
                      group.get("investment_discretion", "unknown"), group.get("exposure_effect", "unknown"), group.get("trade_date"),
                      group.get("trade_date_precision", "unknown"), group.get("venue_raw"), group.get("venue_mic"),
                      group.get("aggregation_reconciliation", "not_applicable"), int(group.get("eligible_own_money_signal", False)),
@@ -570,7 +580,8 @@ def run_daily(
                 adapter = NewsWebAdapter(timeout=source.get("timeout_seconds", 20), retries=source.get("retries", 2))
             elif source["adapter"] == "sweden_fi_live":
                 adapter = SwedenFiAdapter(timeout=source.get("timeout_seconds", 20), retries=source.get("retries", 2),
-                                           request_delay=source.get("request_delay_seconds", 0.15))
+                                           request_delay=source.get("request_delay_seconds", 0.15),
+                                           search_request_delay=source.get("search_request_delay_seconds"))
             elif source["adapter"] == "bafin_live":
                 adapter = BafinAdapter(timeout=source.get("timeout_seconds", 20), retries=source.get("retries", 2),
                                        request_delay=source.get("request_delay_seconds", 0.2))

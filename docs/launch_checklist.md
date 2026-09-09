@@ -8,11 +8,11 @@
 | Corrections/current view | passed on synthetic ordering/retraction cases | Add real correction-before-original sample |
 | Backup/restore/raw verification | passed | `test_backup_restore_and_resume` |
 | Interface/API/CSV | passed locally | Add browser accessibility review and production auth proxy |
-| Real source transaction | passed for active slice | Norway, Sweden, Germany, Switzerland and France populate canonical data |
-| 50 audited observations per major source | blocked | No source meets sample gate |
-| 17 verified live adapters | blocked | 5 live-verified/tested routes; 12 remain |
+| Real source transaction | passed for active slice | Norway, Sweden, Germany, Switzerland, France, Netherlands and Denmark populate canonical data |
+| 50 audited observations per major source | partial | France and Sweden independently pass 50/50 after evidence-driven corrections; remaining major sources are pending |
+| 17 verified live adapters | blocked | 7 jurisdiction routes implemented; 10 remain |
 | Commercial rights | not applicable | User confirmed private/non-commercial use |
-| Persistent scheduler | passed | `InsiderTrackerDaily` installed and verified Ready; UTC trigger renders 07:00 local during DST |
+| Persistent scheduler | passed | `InsiderTrackerDaily` installed, automatic firing observed, and manual launch completed all sources; controlled result 2 is solely a retained Norway evidence quarantine |
 | Public/commercial launch | out of scope | User confirmed this is a private, non-commercial research tool |
 
-Private pilot result: **working five-route live slice with explicit quarantines; not yet 17-country coverage**.
+Private pilot result: **working seven-jurisdiction live slice with explicit quarantines; not yet 17-country coverage**.

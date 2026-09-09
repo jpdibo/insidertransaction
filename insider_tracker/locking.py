@@ -35,7 +35,7 @@ class ProcessLock:
                 self._reclaim()
             except PermissionError as permission_exc:
                 raise LockBusy(f"writer lock owner cannot be inspected: {self.path}") from permission_exc
-            except OSError:
+            except (OSError, SystemError):
                 self._reclaim()
             else:
                 raise LockBusy(f"writer lock held by pid {owner_pid}: {self.path}") from exc

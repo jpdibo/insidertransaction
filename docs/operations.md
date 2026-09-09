@@ -2,7 +2,7 @@
 
 ## Daily Run
 
-One Windows Task Scheduler definition is provided at `scheduler/InsiderTrackerDaily.xml`; it runs the `short_selling` Conda interpreter every calendar day at 06:00 UTC with `StartWhenAvailable`. Its exact command has been executed, but the task is not installed because this workspace is not established as the persistent pilot host.
+The Windows Task Scheduler definition at `scheduler/InsiderTrackerDaily.xml` is installed as `InsiderTrackerDaily`; it runs the `short_selling` Conda interpreter every calendar day at 06:00 UTC with `StartWhenAvailable`. Automatic firing and a manual Task Scheduler launch have been observed. Exit code 2 means the pipeline completed with an explicit source quarantine or failure; inspect the matching `data/reports/run_*.json` rather than treating it as a process crash.
 
 The daily process acquires `data/lock`, migrates and validates configuration, resumes from source checkpoints with overlap, stores raw bytes atomically, parses outside write transactions, commits accepted facts and dry-run alert outbox entries, writes JSON/Markdown reports, creates an online SQLite backup, copies every referenced raw object, and releases the lock. Exit `0` is success, `2` partial failure and `3` writer overlap.
 

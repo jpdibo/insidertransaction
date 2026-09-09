@@ -10,8 +10,8 @@ def create_audit_sample(connection, source_id: str, size: int, output: Path) -> 
         raise ValueError("audit sample size must be positive")
     rows = connection.execute(
         "SELECT DISTINCT e.id AS event_id,sr.native_record_id,sr.canonical_url,ro.sha256 AS raw_sha256,"
-        "iss.legal_name AS issuer_name,p.canonical_name AS party_name,tg.action,tg.nature_raw,tg.trade_date,"
-        "tg.venue_raw,i.name_raw AS instrument_name,ii.value AS isin,rr.representation,rr.price_raw,"
+        "COALESCE(fv.issuer_name_raw,iss.legal_name) AS issuer_name,p.canonical_name AS party_name,tg.action,tg.nature_raw,tg.trade_date,"
+        "tg.venue_raw,COALESCE(tg.instrument_name_raw,i.name_raw) AS instrument_name,ii.value AS isin,rr.representation,rr.price_raw,"
         "rr.price_amount_decimal,rr.price_currency,rr.quantity_raw,rr.quantity_decimal,rr.quantity_unit "
         "FROM economic_events e JOIN event_versions ev ON ev.id=e.current_version_id "
         "JOIN filing_versions fv ON fv.id=ev.filing_version_id JOIN filings f ON f.id=fv.filing_id "
